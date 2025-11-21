@@ -20,10 +20,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 <!-- test db -->
-python scripts/tests/test_connection.py 
+python tests/test_connection.py 
 
 
 <!-- push to github -->
 git add .
 git commit -m "Setup: Docker + pgvector + Python env"
 git push
+
+
+<!-- parser -->
+python src/resume_parser.py /workspaces/CV_parser_and_recommender/resume-dataset/data/data/ENGINEERING/10030015.pdf -o data/outputs/ENGINEERING_10030015.pdf.json
+python src/resume_parser.py /workspaces/CV_parser_and_recommender/resume-dataset/data/data/ENGINEERING/10030015.pdf -o data/outputs/ENGINEERING_10030015.pdf.json --provider gemini

@@ -1,2 +1,8 @@
 .env
 .venv
+*.zip
+__pycache__/
+*.pyc
+.DS_Store
+resume-dataset/
+data/
