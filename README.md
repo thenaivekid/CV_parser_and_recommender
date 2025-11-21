@@ -1,6 +1,21 @@
 # CV parser and recommender
 
+## Resume Parser
 
+The resume parser intelligently extracts structured data from PDF CVs using LLM-powered NLP. It handles diverse CV layouts (traditional, modern, multi-column) and converts them into standardized JSON format with fields like work experience, education, skills, and certifications.
+
+**Key Features:**
+- **Multi-provider support**: Azure OpenAI and Google Gemini
+- **Robust error handling**: Validates PDFs, handles corruption, provides detailed logging  
+- **Format flexibility**: Parses various CV layouts and unconventional structures
+- **Smart extraction**: Uses few-shot learning for accurate field detection
+- **Retry logic**: Up to 3 attempts with fallback to ensure reliability
+- **Data validation**: Cleans and validates extracted information
+
+**Usage:**
+```bash
+python src/resume_parser.py path/to/resume.pdf -o output.json --provider gemini
+```
 
 
 ## embeddings

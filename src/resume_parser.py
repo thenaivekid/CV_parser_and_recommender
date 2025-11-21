@@ -1,19 +1,29 @@
 """
 Resume Parser using LangChain with Azure OpenAI or Google Gemini
-Reads PDF resumes and converts them to structured JSON format
+Reads PDF resumes and converts them to structured JSON format with robust error handling
 """
 
 import os
 import json
-from typing import Literal
+import logging
+import re
+from typing import Literal, Optional, Dict, Any
 from pathlib import Path
 from dotenv import load_dotenv
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import AzureChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -21,16 +31,32 @@ load_dotenv()
 
 class Location(BaseModel):
     """Location information"""
-    city: str = Field(description="City name")
-    countryCode: str = Field(description="Two-letter country code")
+    city: str = Field(default="", description="City name")
+    countryCode: str = Field(default="", description="Two-letter country code")
+    
+    @field_validator('countryCode')
+    @classmethod
+    def validate_country_code(cls, v):
+        """Ensure country code is uppercase and 2 letters"""
+        if v and len(v) == 2:
+            return v.upper()
+        return v
 
 
 class Basics(BaseModel):
     """Basic information about the person"""
-    name: str = Field(description="Full name")
-    email: str = Field(description="Email address")
-    phone: str = Field(description="Phone number")
-    location: Location = Field(description="Location information")
+    name: str = Field(default="", description="Full name")
+    email: str = Field(default="", description="Email address")
+    phone: str = Field(default="", description="Phone number")
+    location: Location = Field(default_factory=Location, description="Location information")
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        """Basic email validation"""
+        if v and '@' in v:
+            return v.strip()
+        return v
 
 
 class WorkExperience(BaseModel):
@@ -42,86 +68,62 @@ class WorkExperience(BaseModel):
     summary: str = Field(description="Summary of responsibilities and achievements")
 
 
-class VolunteerExperience(BaseModel):
-    """Volunteer experience entry"""
-    organization: str = Field(description="Organization name")
-    position: str = Field(description="Role/position")
-    url: str = Field(default="", description="Organization URL")
-    startDate: str = Field(description="Start date in YYYY-MM-DD format")
-    endDate: str = Field(description="End date in YYYY-MM-DD format")
-    summary: str = Field(description="Summary of contributions")
-    highlights: list[str] = Field(default=[], description="Key achievements")
-
-
 class Education(BaseModel):
     """Education entry"""
     institution: str = Field(description="Institution name")
-    url: str = Field(default="", description="Institution URL")
     area: str = Field(description="Field of study")
-    studyType: str = Field(description="Degree type (e.g., Bachelor of Science)")
+    studyType: str = Field(description="Degree type (e.g., Bachelor of Science, Master of Science)")
     startDate: str = Field(description="Start date in YYYY-MM-DD format")
     endDate: str = Field(description="End date in YYYY-MM-DD format")
-    score: str = Field(default="", description="GPA or score")
-    courses: list[str] = Field(default=[], description="Relevant courses")
 
 
-class Award(BaseModel):
-    """Award entry"""
-    title: str = Field(description="Award title")
-    date: str = Field(description="Award date in YYYY-MM-DD format")
-    awarder: str = Field(description="Organization that gave the award")
-    summary: str = Field(description="Award description")
+class Skills(BaseModel):
+    """Skills categorized as technical and soft skills"""
+    technical: list[str] = Field(default=[], description="List of technical skills")
+    soft: list[str] = Field(default=[], description="List of soft skills")
 
 
 class Certificate(BaseModel):
     """Certificate entry"""
     name: str = Field(description="Certificate name")
-    date: str = Field(description="Issue date in YYYY-MM-DD format")
     issuer: str = Field(description="Issuing organization")
-    url: str = Field(default="", description="Certificate URL")
+    date: str = Field(description="Issue date in YYYY-MM-DD format")
 
 
-class Publication(BaseModel):
-    """Publication entry"""
-    name: str = Field(description="Publication title")
-    publisher: str = Field(description="Publisher name")
-    releaseDate: str = Field(description="Release date in YYYY-MM-DD format")
-    url: str = Field(default="", description="Publication URL")
-    summary: str = Field(description="Publication summary")
+class Achievement(BaseModel):
+    """Achievement or award entry"""
+    title: str = Field(description="Achievement/award title")
+    awarder: str = Field(description="Organization that gave the award")
+    date: str = Field(description="Award date in YYYY-MM-DD format")
+    description: str = Field(description="Achievement description")
 
 
-class Skill(BaseModel):
-    """Skill entry"""
-    name: str = Field(description="Skill category name")
-    level: str = Field(description="Proficiency level")
-    keywords: list[str] = Field(description="List of specific skills")
-
-
-class Project(BaseModel):
-    """Project entry"""
-    name: str = Field(description="Project name")
-    startDate: str = Field(description="Start date in YYYY-MM-DD format")
-    endDate: str = Field(description="End date in YYYY-MM-DD format")
-    description: str = Field(description="Project description")
-    highlights: list[str] = Field(default=[], description="Key achievements")
-    url: str = Field(default="", description="Project URL")
+class Language(BaseModel):
+    """Language proficiency entry"""
+    language: str = Field(description="Language name")
+    fluency: str = Field(description="Fluency level (e.g., Native, Fluent, Professional Working Proficiency, Limited Working Proficiency)")
 
 
 class ResumeData(BaseModel):
     """Complete resume data structure"""
     basics: Basics = Field(description="Basic personal information")
+    summary: str = Field(default="", description="Professional summary or objective statement")
     work: list[WorkExperience] = Field(default=[], description="Work experience")
-    volunteer: list[VolunteerExperience] = Field(default=[], description="Volunteer experience")
     education: list[Education] = Field(default=[], description="Education history")
-    awards: list[Award] = Field(default=[], description="Awards and honors")
-    certificates: list[Certificate] = Field(default=[], description="Certifications")
-    publications: list[Publication] = Field(default=[], description="Publications")
-    skills: list[Skill] = Field(default=[], description="Skills")
-    projects: list[Project] = Field(default=[], description="Projects")
+    skills: Skills = Field(description="Technical and soft skills")
+    certifications: list[Certificate] = Field(default=[], description="Certifications")
+    achievements: list[Achievement] = Field(default=[], description="Achievements and awards")
+    languages: list[Language] = Field(default=[], description="Languages spoken")
 
 
 class ResumeParser:
-    """Parser for converting PDF resumes to structured JSON"""
+    """Parser for converting PDF resumes to structured JSON with robust error handling"""
+    
+    # Supported file extensions
+    SUPPORTED_EXTENSIONS = {'.pdf'}
+    
+    # Maximum file size (20MB)
+    MAX_FILE_SIZE = 20 * 1024 * 1024
     
     def __init__(self, provider: Literal["azure", "gemini"] = "azure"):
         """
@@ -129,111 +131,244 @@ class ResumeParser:
         
         Args:
             provider: LLM provider to use ("azure" for Azure OpenAI or "gemini" for Google Gemini)
+            
+        Raises:
+            ValueError: If provider is not supported
+            EnvironmentError: If required environment variables are missing
         """
         self.provider = provider
+        self._validate_environment()
         self.llm = self._initialize_llm()
         self.parser = JsonOutputParser(pydantic_object=ResumeData)
-        
-    def _initialize_llm(self):
-        """Initialize the appropriate LLM based on provider"""
+        logger.info(f"Initialized ResumeParser with provider: {provider}")
+    
+    def _validate_environment(self):
+        """Validate that required environment variables are set"""
         if self.provider == "azure":
-            # Note: o3-mini doesn't support temperature parameter
-            return AzureChatOpenAI(
-                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-                api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-                deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
-                api_key=os.getenv("AZURE_OPENAI_API_KEY")
-            )
+            required_vars = [
+                "AZURE_OPENAI_ENDPOINT",
+                "AZURE_OPENAI_API_VERSION",
+                "AZURE_OPENAI_DEPLOYMENT",
+                "AZURE_OPENAI_API_KEY"
+            ]
         elif self.provider == "gemini":
-            return ChatGoogleGenerativeAI(
-                model="gemini-3-pro-preview",
-                google_api_key=os.getenv("GOOGLE_API_KEY"),
-                temperature=0
-            )
+            required_vars = ["GOOGLE_API_KEY"]
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
+        
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        if missing_vars:
+            raise EnvironmentError(
+                f"Missing required environment variables for {self.provider}: {', '.join(missing_vars)}"
+            )
+    
+    def _initialize_llm(self):
+        """Initialize the appropriate LLM based on provider"""
+        try:
+            if self.provider == "azure":
+                # Note: o3-mini doesn't support temperature parameter
+                return AzureChatOpenAI(
+                    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                    api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+                    deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+                    api_key=os.getenv("AZURE_OPENAI_API_KEY")
+                )
+            elif self.provider == "gemini":
+                return ChatGoogleGenerativeAI(
+                    model="gemini-3-pro-preview",
+                    google_api_key=os.getenv("GOOGLE_API_KEY"),
+                    temperature=0
+                )
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM: {e}")
+            raise
+    
+    def _validate_pdf_file(self, pdf_path: str) -> None:
+        """Validate PDF file before processing
+        
+        Args:
+            pdf_path: Path to the PDF file
+            
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If file is not a PDF or exceeds size limit
+        """
+        path = Path(pdf_path)
+        
+        if not path.exists():
+            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+        
+        if path.suffix.lower() not in self.SUPPORTED_EXTENSIONS:
+            raise ValueError(f"Unsupported file type: {path.suffix}. Only PDF files are supported.")
+        
+        file_size = path.stat().st_size
+        if file_size > self.MAX_FILE_SIZE:
+            raise ValueError(
+                f"File size ({file_size / 1024 / 1024:.2f}MB) exceeds maximum allowed size "
+                f"({self.MAX_FILE_SIZE / 1024 / 1024:.2f}MB)"
+            )
+        
+        if file_size == 0:
+            raise ValueError("PDF file is empty")
     
     def read_pdf(self, pdf_path: str) -> str:
-        """
-        Read text content from a PDF file
+        """Read text content from a PDF file with robust error handling
         
         Args:
             pdf_path: Path to the PDF file
             
         Returns:
             Extracted text content
+            
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If file is invalid or corrupted
+            PdfReadError: If PDF cannot be read
         """
-        reader = PdfReader(pdf_path)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-        return text
+        try:
+            # Validate file first
+            self._validate_pdf_file(pdf_path)
+            logger.info(f"Reading PDF: {pdf_path}")
+            
+            # Read PDF with error handling
+            reader = PdfReader(pdf_path)
+            
+            # Check if PDF has pages
+            if len(reader.pages) == 0:
+                raise ValueError("PDF has no pages")
+            
+            text = ""
+            for i, page in enumerate(reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+                except Exception as e:
+                    logger.warning(f"Failed to extract text from page {i+1}: {e}")
+                    continue
+            
+            # Clean extracted text
+            text = self._clean_text(text)
+            
+            if not text.strip():
+                raise ValueError("No text could be extracted from PDF. The file may be image-based or corrupted.")
+            
+            logger.info(f"Successfully extracted {len(text)} characters from {len(reader.pages)} pages")
+            return text
+            
+        except PdfReadError as e:
+            logger.error(f"PDF read error: {e}")
+            raise ValueError(f"Malformed or corrupted PDF: {e}")
+        except Exception as e:
+            logger.error(f"Error reading PDF: {e}")
+            raise
+    
+    def _clean_text(self, text: str) -> str:
+        """Clean extracted text by removing excessive whitespace and special characters
+        
+        Args:
+            text: Raw extracted text
+            
+        Returns:
+            Cleaned text
+        """
+        # Replace multiple spaces with single space
+        text = re.sub(r' +', ' ', text)
+        # Replace multiple newlines with double newline
+        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+        # Remove zero-width spaces and other invisible characters
+        text = re.sub(r'[\u200b-\u200d\ufeff]', '', text)
+        return text.strip()
+    
+    def _validate_parsed_data(self, data: dict) -> dict:
+        """Validate and clean parsed data
+        
+        Args:
+            data: Parsed resume data
+            
+        Returns:
+            Validated and cleaned data
+        """
+        # Ensure all required top-level fields exist
+        required_fields = ['basics', 'summary', 'work', 'education', 'skills', 
+                          'certifications', 'achievements', 'languages']
+        
+        for field in required_fields:
+            if field not in data:
+                logger.warning(f"Missing field '{field}' in parsed data, adding empty value")
+                if field in ['work', 'education', 'certifications', 'achievements', 'languages']:
+                    data[field] = []
+                elif field == 'skills':
+                    data[field] = {'technical': [], 'soft': []}
+                elif field == 'basics':
+                    data[field] = {
+                        'name': '', 'email': '', 'phone': '',
+                        'location': {'city': '', 'countryCode': ''}
+                    }
+                else:
+                    data[field] = ''
+        
+        # Clean empty strings from arrays
+        for field in ['work', 'education', 'certifications', 'achievements', 'languages']:
+            if isinstance(data.get(field), list):
+                data[field] = [item for item in data[field] if item]
+        
+        return data
     
     def parse_resume(self, pdf_path: str) -> dict:
-        """
-        Parse a resume PDF and convert it to structured JSON
+        """Parse a resume PDF and convert it to structured JSON with comprehensive error handling
         
         Args:
             pdf_path: Path to the resume PDF file
             
         Returns:
             Parsed resume data as dictionary
+            
+        Raises:
+            FileNotFoundError: If PDF file doesn't exist
+            ValueError: If PDF is invalid or parsing fails
+            Exception: For other unexpected errors
         """
-        # Read PDF content
-        resume_text = self.read_pdf(pdf_path)
+        try:
+            # Read PDF content
+            resume_text = self.read_pdf(pdf_path)
+        except Exception as e:
+            logger.error(f"Failed to read PDF: {e}")
+            raise
         
         # Few-shot example with actual sample data
         sample_resume_text = """John Doe
 San Francisco
 CA
 USA
-Ȳ +1 555 123 4567
-a john.doe@techcorp.com
+☎ +1 555 123 4567
+✉ john.doe@techcorp.com
+
+Professional Summary
+Experienced AI Engineer with 3+ years of expertise in developing scalable machine learning solutions and real-time analytics systems. Proven track record of delivering high-impact projects that improve operational efficiency.
+
 Experience
-2020–2023 Senior AI Engineer , T ech Corp, San Francisco, CA
+2020–2023 Senior AI Engineer , Tech Corp, San Francisco, CA
 Led development of a real-time predictive analytics engine used by 50+ clients, increasing internal
-eﬀiciency by 30%. Focused on deep learning models and scalable cloud infrastructure.
-Projects
-2023 Financial Data Predictor , Personal Project
-f Developed an LSTM model to predict short-term stock volatility (65% accuracy on test data)
-f Deployed using Docker and Kubernetes
-f GitHub: https://github.com/johndoe/stock-predictor
+efficiency by 30%. Focused on deep learning models and scalable cloud infrastructure.
+
 Education
-2018–2020 Master of Science in Computer Science (Artificial Intelligence) , University of T ech,
-3.9/4.0
-Relevant coursework: Advanced Neural Networks · Distributed Systems and Big Data
-Open Source & Volunteer
-2018–2020 Lead Contributor, Open Source Initiative – Project XYZ
-f Managed a team of 5 developers on a popular data visualization library
-f Mentored two junior contributors on best practices
-f Successfully migrated the entire codebase to T ypeScript
-https://opensource.org/project-xyz
-Publications
-2023 "Scaling Model T raining with Serverless Functions"
-Journal of Ma-
-chine Learning
-Systems
-https://journal-
-mls.com/john-doe-
-paper
+2018–2020 Master of Science in Computer Science (Artificial Intelligence) , University of Tech
+
 Awards
-2021 Innovation of the Y ear – T ech Corp Internal Summit
-Recognized for cre-
-ating a proprietary
-AI-driven fraud de-
-tection system
+2021 Innovation of the Year – Tech Corp Internal Summit
+Recognized for creating a proprietary AI-driven fraud detection system
+
 Certifications
 2022 Certified Cloud Professional (GCP) – Google Cloud
+
 Skills
-Programming
+Technical Skills: Python · TypeScript· Go · PyTorch · TensorFlow· Keras · Scikit-learn · Docker · Kubernetes
+Soft Skills: Team Leadership · Problem Solving · Communication · Project Management
+
 Languages
-Python · T ypeScript· Go
-AI/ML
-Frameworks
-PyT orch (Master)· T ensorFlow· Keras · Scikit-learn
-Cloud &
-Infrastructure
-GCP (Certified) · Docker · Kubernetes · Serverless"""
+English (Native)
+Spanish (Professional Working Proficiency)"""
 
         sample_json_output = {
             "basics": {
@@ -245,6 +380,7 @@ GCP (Certified) · Docker · Kubernetes · Serverless"""
                     "countryCode": "US"
                 }
             },
+            "summary": "Experienced AI Engineer with 3+ years of expertise in developing scalable machine learning solutions and real-time analytics systems. Proven track record of delivering high-impact projects that improve operational efficiency.",
             "work": [
                 {
                     "company": "Tech Corp",
@@ -254,83 +390,57 @@ GCP (Certified) · Docker · Kubernetes · Serverless"""
                     "summary": "Led development of a real-time predictive analytics engine used by over 50 clients, increasing internal efficiency by 30%. Focused on deep learning models and scalable cloud infrastructure."
                 }
             ],
-            "volunteer": [
-                {
-                    "organization": "Open Source Initiative",
-                    "position": "Lead Contributor",
-                    "url": "https://opensource.org/project-xyz",
-                    "startDate": "2018-05-01",
-                    "endDate": "2020-01-01",
-                    "summary": "Managed a team of 5 developers contributing to Project XYZ, a popular data visualization library.",
-                    "highlights": [
-                        "Mentored two junior contributors on best practices",
-                        "Successfully migrated the codebase to TypeScript"
-                    ]
-                }
-            ],
             "education": [
                 {
                     "institution": "University of Tech",
-                    "url": "https://u-tech.edu/",
                     "area": "Computer Science (Artificial Intelligence)",
                     "studyType": "Master of Science",
                     "startDate": "2018-09-01",
-                    "endDate": "2020-06-01",
-                    "score": "3.9/4.0",
-                    "courses": [
-                        "Advanced Neural Networks (CS501)",
-                        "Distributed Systems and Big Data (CS502)"
-                    ]
+                    "endDate": "2020-06-01"
                 }
             ],
-            "awards": [
-                {
-                    "title": "Innovation of the Year",
-                    "date": "2021-06-15",
-                    "awarder": "Tech Corp Internal Summit",
-                    "summary": "Recognized for the creation of the proprietary AI-driven fraud detection system."
-                }
-            ],
-            "certificates": [
+            "skills": {
+                "technical": [
+                    "Python",
+                    "TypeScript",
+                    "Go",
+                    "PyTorch",
+                    "TensorFlow",
+                    "Keras",
+                    "Scikit-learn",
+                    "Docker",
+                    "Kubernetes"
+                ],
+                "soft": [
+                    "Team Leadership",
+                    "Problem Solving",
+                    "Communication",
+                    "Project Management"
+                ]
+            },
+            "certifications": [
                 {
                     "name": "Certified Cloud Professional (GCP)",
-                    "date": "2022-03-01",
                     "issuer": "Google Cloud",
-                    "url": "https://certs.google.com/john-doe-gcp-cert"
+                    "date": "2022-03-01"
                 }
             ],
-            "publications": [
+            "achievements": [
                 {
-                    "name": "Scaling Model Training with Serverless Functions",
-                    "publisher": "Journal of Machine Learning Systems",
-                    "releaseDate": "2023-08-01",
-                    "url": "https://journal-mls.com/john-doe-paper",
-                    "summary": "A detailed analysis of infrastructure techniques to reduce the cost and time of large-scale model retraining."
+                    "title": "Innovation of the Year",
+                    "awarder": "Tech Corp Internal Summit",
+                    "date": "2021-06-15",
+                    "description": "Recognized for the creation of the proprietary AI-driven fraud detection system."
                 }
             ],
-            "skills": [
+            "languages": [
                 {
-                    "name": "Programming Languages",
-                    "level": "Expert",
-                    "keywords": ["Python", "TypeScript", "Go"]
+                    "language": "English",
+                    "fluency": "Native"
                 },
                 {
-                    "name": "AI/ML Frameworks",
-                    "level": "Master",
-                    "keywords": ["PyTorch", "TensorFlow", "Keras", "Scikit-learn"]
-                }
-            ],
-            "projects": [
-                {
-                    "name": "Financial Data Predictor",
-                    "startDate": "2023-01-01",
-                    "endDate": "2023-06-30",
-                    "description": "A personal side project developing an LSTM model to predict short-term stock volatility.",
-                    "highlights": [
-                        "Achieved 65% prediction accuracy on test data",
-                        "Deployed using Docker and Kubernetes"
-                    ],
-                    "url": "https://github.com/johndoe/stock-predictor"
+                    "language": "Spanish",
+                    "fluency": "Professional Working Proficiency"
                 }
             ]
         }
@@ -346,6 +456,10 @@ CRITICAL RULES - YOU MUST FOLLOW THESE STRICTLY:
 4. If a field value is not found in the resume, use an empty string "" or empty array []
 5. For dates, convert to the specified format (YYYY-MM-DD or YYYY-MM) based on available information
 6. Maintain the hierarchical structure as shown in the schema
+7. Handle various CV layouts: traditional, modern, multi-column, tables, and bullet points
+8. Extract information even if formatting is inconsistent or unconventional
+9. Infer company names from context if explicitly mentioned near job positions
+10. For contact information, look in headers, footers, and throughout the document
 
 FEW-SHOT EXAMPLE:
 Given this resume text:
@@ -359,6 +473,8 @@ Notice how ACTUAL values are extracted:
 - Company: "Tech Corp" (not "Company Name")
 - Institution: "University of Tech" (not "University Name")
 - Position: "Senior AI Engineer" (not "Job Title")
+- Skills are categorized into technical and soft skills
+- Languages include fluency levels
 
 {format_instructions}"""),
             ("user", "Now parse this resume text and extract ONLY the actual values present:\n\n{resume_text}")
@@ -367,60 +483,168 @@ Notice how ACTUAL values are extracted:
         # Create chain
         chain = prompt | self.llm | self.parser
         
-        # Parse resume
-        result = chain.invoke({
-            "resume_text": resume_text,
-            "format_instructions": self.parser.get_format_instructions(),
-            "sample_resume_text": sample_resume_text,
-            "sample_json_output": json.dumps(sample_json_output, indent=2)
-        })
+        # Parse resume with retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Parsing resume (attempt {attempt + 1}/{max_retries})")
+                result = chain.invoke({
+                    "resume_text": resume_text,
+                    "format_instructions": self.parser.get_format_instructions(),
+                    "sample_resume_text": sample_resume_text,
+                    "sample_json_output": json.dumps(sample_json_output, indent=2)
+                })
+                
+                # Validate parsed data
+                result = self._validate_parsed_data(result)
+                logger.info("Resume parsed successfully")
+                return result
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error on attempt {attempt + 1}: {e}")
+                if attempt == max_retries - 1:
+                    raise ValueError(f"Failed to parse resume after {max_retries} attempts: Invalid JSON output")
+            except Exception as e:
+                logger.error(f"Parsing error on attempt {attempt + 1}: {e}")
+                if attempt == max_retries - 1:
+                    raise ValueError(f"Failed to parse resume: {e}")
         
-        return result
+        # Fallback: return minimal structure if all retries fail
+        logger.warning("All parsing attempts failed, returning minimal structure")
+        return self._get_empty_resume_structure()
     
-    def save_to_json(self, data: dict, output_path: str):
+    def _get_empty_resume_structure(self) -> dict:
+        """Return an empty resume structure as fallback
+        
+        Returns:
+            Empty resume structure dictionary
         """
-        Save parsed resume data to a JSON file
+        return {
+            "basics": {
+                "name": "",
+                "email": "",
+                "phone": "",
+                "location": {"city": "", "countryCode": ""}
+            },
+            "summary": "",
+            "work": [],
+            "education": [],
+            "skills": {"technical": [], "soft": []},
+            "certifications": [],
+            "achievements": [],
+            "languages": []
+        }
+    
+    def save_to_json(self, data: dict, output_path: str) -> None:
+        """Save parsed resume data to a JSON file with error handling
         
         Args:
             data: Parsed resume data
             output_path: Path to save the JSON file
+            
+        Raises:
+            IOError: If file cannot be written
         """
-        output_dir = Path(output_path).parent
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        try:
+            output_dir = Path(output_path).parent
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"Saved parsed resume to: {output_path}")
+        except IOError as e:
+            logger.error(f"Failed to save JSON file: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while saving JSON: {e}")
+            raise
 
 
 def main():
-    """Main function demonstrating usage"""
+    """Main function demonstrating usage with comprehensive error handling"""
     import argparse
+    import sys
     
-    parser = argparse.ArgumentParser(description="Parse resume PDF to structured JSON")
+    parser = argparse.ArgumentParser(
+        description="Parse resume PDF to structured JSON",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s resume.pdf
+  %(prog)s resume.pdf -o output.json
+  %(prog)s resume.pdf --provider gemini
+  %(prog)s resume.pdf -o output.json -v
+        """
+    )
     parser.add_argument("pdf_path", help="Path to the resume PDF file")
     parser.add_argument("-o", "--output", help="Output JSON file path", 
                        default="data/outputs/parsed_resume.json")
     parser.add_argument("-p", "--provider", choices=["azure", "gemini"], 
-                       default="azure", help="LLM provider to use")
+                       default="azure", help="LLM provider to use (default: azure)")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                       help="Enable verbose logging")
     
     args = parser.parse_args()
     
-    # Initialize parser
-    resume_parser = ResumeParser(provider=args.provider)
+    # Set logging level
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
     
-    # Parse resume
-    print(f"Parsing resume from: {args.pdf_path}")
-    print(f"Using provider: {args.provider}")
-    parsed_data = resume_parser.parse_resume(args.pdf_path)
-    
-    # Save to JSON
-    resume_parser.save_to_json(parsed_data, args.output)
-    print(f"Resume parsed successfully and saved to: {args.output}")
-    
-    # Print preview
-    print("\nParsed Data Preview:")
-    print(json.dumps(parsed_data, indent=2)[:500] + "...")
+    try:
+        # Initialize parser
+        print(f"Initializing parser with provider: {args.provider}")
+        resume_parser = ResumeParser(provider=args.provider)
+        
+        # Parse resume
+        print(f"Parsing resume from: {args.pdf_path}")
+        parsed_data = resume_parser.parse_resume(args.pdf_path)
+        
+        # Save to JSON
+        resume_parser.save_to_json(parsed_data, args.output)
+        print(f"✓ Resume parsed successfully and saved to: {args.output}")
+        
+        # Print preview
+        print("\n" + "="*50)
+        print("Parsed Data Preview:")
+        print("="*50)
+        preview = json.dumps(parsed_data, indent=2)
+        if len(preview) > 500:
+            print(preview[:500] + "\n...\n(truncated)")
+        else:
+            print(preview)
+        
+        # Print statistics
+        print("\n" + "="*50)
+        print("Extraction Statistics:")
+        print("="*50)
+        print(f"Name: {'✓' if parsed_data.get('basics', {}).get('name') else '✗'}")
+        print(f"Email: {'✓' if parsed_data.get('basics', {}).get('email') else '✗'}")
+        print(f"Work Experience: {len(parsed_data.get('work', []))} entries")
+        print(f"Education: {len(parsed_data.get('education', []))} entries")
+        print(f"Technical Skills: {len(parsed_data.get('skills', {}).get('technical', []))} items")
+        print(f"Certifications: {len(parsed_data.get('certifications', []))} entries")
+        
+        return 0
+        
+    except FileNotFoundError as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        return 1
+    except ValueError as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        return 1
+    except EnvironmentError as e:
+        print(f"✗ Configuration Error: {e}", file=sys.stderr)
+        print("\nPlease ensure all required environment variables are set in .env file", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"✗ Unexpected Error: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    sys.exit(main())
