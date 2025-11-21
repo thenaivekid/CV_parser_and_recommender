@@ -1,0 +1,30 @@
+version: '1.0'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: cv-job-pgvector
+    environment:
+      POSTGRES_USER: cv_user
+      POSTGRES_PASSWORD: cv_password_123
+      POSTGRES_DB: cv_job_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cv_user -d cv_job_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cv-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  cv-network:
+    driver: bridge
