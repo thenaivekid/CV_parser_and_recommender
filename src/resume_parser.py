@@ -315,11 +315,13 @@ class ResumeParser:
         
         return data
     
-    def parse_resume(self, pdf_path: str) -> dict:
+    def parse_resume(self, pdf_path: str, save_output: bool = False, output_path: str = None) -> dict:
         """Parse a resume PDF and convert it to structured JSON with comprehensive error handling
         
         Args:
             pdf_path: Path to the resume PDF file
+            save_output: Whether to save the output to a JSON file (default: False)
+            output_path: Path to save the JSON file (only used if save_output=True)
             
         Returns:
             Parsed resume data as dictionary
@@ -330,7 +332,7 @@ class ResumeParser:
             Exception: For other unexpected errors
         """
         try:
-            # Read PDF content
+            logger.info(f"Starting to parse resume: {pdf_path}")
             resume_text = self.read_pdf(pdf_path)
         except Exception as e:
             logger.error(f"Failed to read PDF: {e}")
@@ -498,6 +500,11 @@ Notice how ACTUAL values are extracted:
                 # Validate parsed data
                 result = self._validate_parsed_data(result)
                 logger.info("Resume parsed successfully")
+                
+                # Save to file if requested
+                if save_output and output_path:
+                    self.save_to_json(result, output_path)
+                
                 return result
                 
             except json.JSONDecodeError as e:
@@ -511,7 +518,12 @@ Notice how ACTUAL values are extracted:
         
         # Fallback: return minimal structure if all retries fail
         logger.warning("All parsing attempts failed, returning minimal structure")
-        return self._get_empty_resume_structure()
+        empty_data = self._get_empty_resume_structure()
+        
+        if save_output and output_path:
+            self.save_to_json(empty_data, output_path)
+        
+        return empty_data
     
     def _get_empty_resume_structure(self) -> dict:
         """Return an empty resume structure as fallback
@@ -596,12 +608,13 @@ Examples:
         print(f"Initializing parser with provider: {args.provider}")
         resume_parser = ResumeParser(provider=args.provider)
         
-        # Parse resume
+        # Parse resume with save option
         print(f"Parsing resume from: {args.pdf_path}")
-        parsed_data = resume_parser.parse_resume(args.pdf_path)
-        
-        # Save to JSON
-        resume_parser.save_to_json(parsed_data, args.output)
+        parsed_data = resume_parser.parse_resume(
+            args.pdf_path,
+            save_output=True,
+            output_path=args.output
+        )
         print(f"✓ Resume parsed successfully and saved to: {args.output}")
         
         # Print preview

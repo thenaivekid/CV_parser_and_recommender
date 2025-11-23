@@ -18,6 +18,12 @@ docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\dt"
 
 docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\d candidates"
 
+docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT candidate_id FROM candidates;"
+
+docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT candidate_id FROM candidate_embeddings;"
+
+docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT * FROM jobs;"
+
 <!-- create venv -->
 python3 -m venv .venv
 source .venv/bin/activate

@@ -85,3 +85,8 @@ CREATE INDEX IF NOT EXISTS idx_candidate_embeddings_vector ON candidate_embeddin
 
 CREATE INDEX IF NOT EXISTS idx_job_embeddings_vector ON job_embeddings 
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- -- Create GIN index on skills_technical array
+-- CREATE INDEX idx_skills_technical ON candidates USING GIN(skills_technical);
+-- -- Create GIN index on skills_soft array
+-- CREATE INDEX idx_skills_soft ON candidates USING GIN(skills_soft);
