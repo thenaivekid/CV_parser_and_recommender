@@ -14,6 +14,10 @@ docker-compose down
 <!-- test conn -->
 docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\dx"
 
+docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\dt"
+
+docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\d candidates"
+
 <!-- create venv -->
 python3 -m venv .venv
 source .venv/bin/activate

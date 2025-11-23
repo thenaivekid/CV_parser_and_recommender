@@ -28,6 +28,7 @@ pytesseract
 pydantic
 pydantic-settings
 python-dotenv
+pyyaml
 
 # Utilities
 requests
