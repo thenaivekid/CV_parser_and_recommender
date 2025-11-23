@@ -1,15 +1,15 @@
 # Resume Parser and Recommender System Configuration
 
 # LLM Provider for parsing resumes
-llm_parser: gemini  # Options: gemini, azure
+llm_parser: azure  # Options: gemini, azure
 
 # Embedding model for vector generation
 embd_model: sentence-transformers/all-mpnet-base-v2
 embd_dimension: 768
 
 # Data processing settings
-num_professions: 5
-num_cv_per_profession: 5
+num_professions: 4
+num_cv_per_profession: 2
 professions:
   - ARTS
   - CHEF
@@ -19,6 +19,7 @@ professions:
 
 # Paths
 resume_base_path: /workspaces/CV_parser_and_recommender/resume-dataset/data/data
+jobs_base_path: /workspaces/CV_parser_and_recommender/data/sample_jobs
 
 # Processing settings
 batch_processing:

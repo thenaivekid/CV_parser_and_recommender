@@ -51,7 +51,7 @@ echo ""
 echo "🚀 Starting batch processing..."
 echo ""
 
-python src/process_resumes.py "$@"
+python src/process_cvs.py "$@"
 
 EXIT_CODE=$?
 

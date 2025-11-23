@@ -283,6 +283,239 @@ class DatabaseManager:
             logger.error(f"Error getting profession counts: {e}")
             return {}
     
+    # ========== JOB-RELATED METHODS ==========
+    
+    def job_exists(self, job_id: str) -> bool:
+        """
+        Check if job already exists in database
+        
+        Args:
+            job_id: Unique job identifier
+            
+        Returns:
+            True if job exists, False otherwise
+        """
+        try:
+            self.cursor.execute(
+                "SELECT COUNT(*) FROM jobs WHERE job_id = %s",
+                (job_id,)
+            )
+            count = self.cursor.fetchone()[0]
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking job existence: {e}")
+            return False
+    
+    def insert_job(self, job_id: str, job_json: dict) -> bool:
+        """
+        Insert job data into jobs table
+        
+        Args:
+            job_id: Unique job identifier
+            job_json: Parsed job data
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Extract structured data
+            job_title = job_json.get('job_title', '')
+            company = job_json.get('company', '')
+            description = job_json.get('description', '')
+            responsibilities = job_json.get('responsibilities', '')
+            
+            # Extract skills
+            skills_technical = job_json.get('skills_technical', [])
+            skills_soft = job_json.get('skills_soft', [])
+            
+            # Extract experience requirements
+            experience_years_min = job_json.get('experience_years_min')
+            experience_years_max = job_json.get('experience_years_max')
+            seniority_level = job_json.get('seniority_level', '')
+            
+            # Extract education requirements
+            education_required = job_json.get('education_required', '')
+            education_field = job_json.get('education_field', '')
+            
+            # Extract certifications and languages
+            certifications = job_json.get('certifications', [])
+            languages = job_json.get('languages', [])
+            location = job_json.get('location', {})
+            
+            # Extract dates
+            posted_date = job_json.get('posted_date')
+            application_deadline = job_json.get('application_deadline')
+            
+            # Insert query
+            insert_query = """
+                INSERT INTO jobs (
+                    job_id, job_title, company, description, responsibilities,
+                    skills_technical, skills_soft,
+                    experience_years_min, experience_years_max, seniority_level,
+                    education_required, education_field,
+                    certifications, languages, location,
+                    posted_date, application_deadline,
+                    raw_data, created_at, updated_at
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s
+                )
+                ON CONFLICT (job_id) DO UPDATE SET
+                    job_title = EXCLUDED.job_title,
+                    company = EXCLUDED.company,
+                    description = EXCLUDED.description,
+                    responsibilities = EXCLUDED.responsibilities,
+                    skills_technical = EXCLUDED.skills_technical,
+                    skills_soft = EXCLUDED.skills_soft,
+                    experience_years_min = EXCLUDED.experience_years_min,
+                    experience_years_max = EXCLUDED.experience_years_max,
+                    seniority_level = EXCLUDED.seniority_level,
+                    education_required = EXCLUDED.education_required,
+                    education_field = EXCLUDED.education_field,
+                    certifications = EXCLUDED.certifications,
+                    languages = EXCLUDED.languages,
+                    location = EXCLUDED.location,
+                    posted_date = EXCLUDED.posted_date,
+                    application_deadline = EXCLUDED.application_deadline,
+                    raw_data = EXCLUDED.raw_data,
+                    updated_at = EXCLUDED.updated_at
+            """
+            
+            now = datetime.now()
+            
+            self.cursor.execute(insert_query, (
+                job_id, job_title, company, description, responsibilities,
+                skills_technical, skills_soft,
+                experience_years_min, experience_years_max, seniority_level,
+                education_required, education_field,
+                certifications, Json(languages), Json(location),
+                posted_date, application_deadline,
+                Json(job_json), now, now
+            ))
+            
+            self.conn.commit()
+            logger.info(f"Inserted/Updated job: {job_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error inserting job {job_id}: {e}")
+            self.conn.rollback()
+            return False
+    
+    def insert_job_embedding(
+        self, 
+        job_id: str, 
+        embedding: List[float], 
+        model_name: str
+    ) -> bool:
+        """
+        Insert embedding vector for job
+        
+        Args:
+            job_id: Unique job identifier
+            embedding: Embedding vector (768 dimensions)
+            model_name: Name of the embedding model used
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Convert list to PostgreSQL vector format
+            embedding_str = '[' + ','.join(map(str, embedding)) + ']'
+            
+            insert_query = """
+                INSERT INTO job_embeddings (
+                    job_id, embedding, embedding_model, created_at
+                ) VALUES (
+                    %s, %s::vector, %s, %s
+                )
+                ON CONFLICT (job_id) DO UPDATE SET
+                    embedding = EXCLUDED.embedding,
+                    embedding_model = EXCLUDED.embedding_model,
+                    created_at = EXCLUDED.created_at
+            """
+            
+            self.cursor.execute(insert_query, (
+                job_id, 
+                embedding_str,
+                model_name,
+                datetime.now()
+            ))
+            
+            self.conn.commit()
+            logger.info(f"Inserted/Updated embedding for job: {job_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error inserting job embedding for {job_id}: {e}")
+            self.conn.rollback()
+            return False
+    
+    def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve job data by ID
+        
+        Args:
+            job_id: Unique job identifier
+            
+        Returns:
+            Job data dictionary or None
+        """
+        try:
+            self.cursor.execute(
+                "SELECT * FROM jobs WHERE job_id = %s",
+                (job_id,)
+            )
+            result = self.cursor.fetchone()
+            
+            if result:
+                columns = [desc[0] for desc in self.cursor.description]
+                return dict(zip(columns, result))
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error retrieving job {job_id}: {e}")
+            return None
+    
+    def get_all_jobs(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all jobs from database
+        
+        Returns:
+            List of job dictionaries
+        """
+        try:
+            query = "SELECT * FROM jobs"
+            self.cursor.execute(query)
+            
+            results = self.cursor.fetchall()
+            columns = [desc[0] for desc in self.cursor.description]
+            
+            return [dict(zip(columns, row)) for row in results]
+            
+        except Exception as e:
+            logger.error(f"Error retrieving jobs: {e}")
+            return []
+    
+    def get_job_count(self) -> int:
+        """
+        Get total count of jobs in database
+        
+        Returns:
+            Number of jobs
+        """
+        try:
+            self.cursor.execute("SELECT COUNT(*) FROM jobs")
+            return self.cursor.fetchone()[0]
+        except Exception as e:
+            logger.error(f"Error getting job count: {e}")
+            return 0
+    
     def close(self):
         """Close database connection"""
         if self.cursor:

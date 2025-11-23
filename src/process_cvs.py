@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.resume_parser import ResumeParser
 from src.embedding_generator import EmbeddingGenerator
 from src.database_manager import DatabaseManager
-from src.batch_processor_utils import BatchProcessor, ParallelBatchProcessor
+from src.cv_batch_processor_utils import BatchProcessor, ParallelBatchProcessor
 from src.config import config
 
 # Configure logging

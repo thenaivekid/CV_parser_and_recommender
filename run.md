@@ -18,7 +18,7 @@ docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\dt"
 
 docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\d candidates"
 
-docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT candidate_id FROM candidates;"
+docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT profession FROM candidates;"
 
 docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT candidate_id FROM candidate_embeddings;"
 

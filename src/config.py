@@ -57,6 +57,11 @@ class Config:
         return Path(self._config.get('resume_base_path', ''))
     
     @property
+    def job_base_path(self) -> Path:
+        """Base path for resume dataset"""
+        return Path(self._config.get('jobs_base_path', ''))
+    
+    @property
     def database(self) -> Dict[str, Any]:
         """Database configuration from environment variables"""
         return {
