@@ -81,7 +81,8 @@ CREATE TABLE IF NOT EXISTS recommendations (
     matched_skills TEXT[],
     missing_skills TEXT[],
     explanation TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(candidate_id, job_id)
 );
 
 -- Create indices for performance

@@ -17,8 +17,12 @@ The resume parser intelligently extracts structured data from PDF CVs using LLM-
 python src/resume_parser.py path/to/resume.pdf -o output.json --provider gemini
 ```
 
+## Matching algorithm
+- Assumes that the names of skills and education degrees in jobs and cvs are standardized. EG. all CVs and job descriptions must have "Machine Learning" not "ML" or "ML Engineer" or anything else. We can use fuzzy search or even better embeddings for skills to make it more robust, but it is left for future to keep the current repo simpler.
 
 ## embeddings
 - Use sentence-transformer(https://huggingface.co/sentence-transformers/all-mpnet-base-v2) for efficiency in terms of cost and compute.
 - For best performance, we should use some of the top models from https://huggingface.co/spaces/mteb/leaderboard
 
+## CV data source
+https://www.kaggle.com/datasets/snehaanbhawal/resume-dataset/code?datasetId=1519260

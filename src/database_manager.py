@@ -235,6 +235,7 @@ class DatabaseManager:
         Returns:
             List of candidate dictionaries
         """
+        # TODO: make this more efficient for large datasets (pagination?), all candidates may not fit in memory
         try:
             if profession:
                 query = "SELECT * FROM candidates WHERE profession = %s"
@@ -514,6 +515,297 @@ class DatabaseManager:
             return self.cursor.fetchone()[0]
         except Exception as e:
             logger.error(f"Error getting job count: {e}")
+            return 0
+    
+    # ========== EMBEDDING RETRIEVAL METHODS ==========
+    
+    def get_candidate_embedding(self, candidate_id: str) -> Optional[List[float]]:
+        """
+        Retrieve embedding vector for a candidate
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            
+        Returns:
+            Embedding vector as list of floats, or None if not found
+        """
+        try:
+            self.cursor.execute(
+                "SELECT embedding FROM candidate_embeddings WHERE candidate_id = %s",
+                (candidate_id,)
+            )
+            result = self.cursor.fetchone()
+            
+            if result and result[0]:
+                # Convert PostgreSQL vector to list of floats
+                return result[0]
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error retrieving embedding for candidate {candidate_id}: {e}")
+            return None
+    
+    def get_job_embedding(self, job_id: str) -> Optional[List[float]]:
+        """
+        Retrieve embedding vector for a job
+        
+        Args:
+            job_id: Unique job identifier
+            
+        Returns:
+            Embedding vector as list of floats, or None if not found
+        """
+        try:
+            self.cursor.execute(
+                "SELECT embedding FROM job_embeddings WHERE job_id = %s",
+                (job_id,)
+            )
+            result = self.cursor.fetchone()
+            
+            if result and result[0]:
+                # Convert PostgreSQL vector to list of floats
+                return result[0]
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error retrieving embedding for job {job_id}: {e}")
+            return None
+    
+    def get_all_candidate_embeddings(self) -> Dict[str, List[float]]:
+        """
+        Retrieve all candidate embeddings
+        
+        Returns:
+            Dictionary mapping candidate_id to embedding vector
+        """
+        try:
+            self.cursor.execute(
+                "SELECT candidate_id, embedding FROM candidate_embeddings"
+            )
+            results = self.cursor.fetchall()
+            
+            return {row[0]: row[1] for row in results if row[1]}
+            
+        except Exception as e:
+            logger.error(f"Error retrieving all candidate embeddings: {e}")
+            return {}
+    
+    def get_all_job_embeddings(self) -> Dict[str, List[float]]:
+        """
+        Retrieve all job embeddings
+        
+        Returns:
+            Dictionary mapping job_id to embedding vector
+        """
+        try:
+            self.cursor.execute(
+                "SELECT job_id, embedding FROM job_embeddings"
+            )
+            results = self.cursor.fetchall()
+            
+            return {row[0]: row[1] for row in results if row[1]}
+            
+        except Exception as e:
+            logger.error(f"Error retrieving all job embeddings: {e}")
+            return {}
+    
+    # ========== RECOMMENDATION METHODS ==========
+    
+    def save_recommendation(
+        self,
+        candidate_id: str,
+        job_id: str,
+        match_score: float,
+        skills_match: float,
+        experience_match: float,
+        education_match: float,
+        semantic_similarity: float,
+        matched_skills: List[str],
+        missing_skills: List[str],
+        explanation: str
+    ) -> bool:
+        """
+        Save a job recommendation for a candidate
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            job_id: Unique job identifier
+            match_score: Overall match score
+            skills_match: Skills match score
+            experience_match: Experience match score
+            education_match: Education match score
+            semantic_similarity: Semantic similarity score
+            matched_skills: List of matched skills
+            missing_skills: List of missing skills
+            explanation: Human-readable explanation
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            insert_query = """
+                INSERT INTO recommendations (
+                    candidate_id, job_id, match_score,
+                    skills_match, experience_match, education_match, semantic_similarity,
+                    matched_skills, missing_skills, explanation, created_at
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (candidate_id, job_id) 
+                DO UPDATE SET
+                    match_score = EXCLUDED.match_score,
+                    skills_match = EXCLUDED.skills_match,
+                    experience_match = EXCLUDED.experience_match,
+                    education_match = EXCLUDED.education_match,
+                    semantic_similarity = EXCLUDED.semantic_similarity,
+                    matched_skills = EXCLUDED.matched_skills,
+                    missing_skills = EXCLUDED.missing_skills,
+                    explanation = EXCLUDED.explanation,
+                    created_at = EXCLUDED.created_at
+            """
+            
+            self.cursor.execute(insert_query, (
+                candidate_id, job_id, match_score,
+                skills_match, experience_match, education_match, semantic_similarity,
+                matched_skills, missing_skills, explanation,
+                datetime.now()
+            ))
+            
+            self.conn.commit()
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving recommendation for {candidate_id} -> {job_id}: {e}")
+            self.conn.rollback()
+            return False
+    
+    def save_recommendations_batch(
+        self,
+        recommendations: List[Dict[str, Any]]
+    ) -> int:
+        """
+        Save multiple recommendations in batch
+        
+        Args:
+            recommendations: List of recommendation dictionaries
+            
+        Returns:
+            Number of successfully saved recommendations
+        """
+        success_count = 0
+        
+        for rec in recommendations:
+            if self.save_recommendation(
+                rec['candidate_id'],
+                rec['job_id'],
+                rec['match_score'],
+                rec['skills_match'],
+                rec['experience_match'],
+                rec['education_match'],
+                rec['semantic_similarity'],
+                rec['matched_skills'],
+                rec['missing_skills'],
+                rec['explanation']
+            ):
+                success_count += 1
+        
+        logger.info(f"Saved {success_count}/{len(recommendations)} recommendations")
+        return success_count
+    
+    def get_recommendations_for_candidate(
+        self,
+        candidate_id: str,
+        top_k: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve saved recommendations for a candidate
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            top_k: Number of top recommendations to return
+            
+        Returns:
+            List of recommendation dictionaries
+        """
+        try:
+            if top_k:
+                query = """
+                    SELECT * FROM recommendations 
+                    WHERE candidate_id = %s 
+                    ORDER BY match_score DESC 
+                    LIMIT %s
+                """
+                self.cursor.execute(query, (candidate_id, top_k))
+            else:
+                query = """
+                    SELECT * FROM recommendations 
+                    WHERE candidate_id = %s 
+                    ORDER BY match_score DESC
+                """
+                self.cursor.execute(query, (candidate_id,))
+            
+            results = self.cursor.fetchall()
+            columns = [desc[0] for desc in self.cursor.description]
+            
+            return [dict(zip(columns, row)) for row in results]
+            
+        except Exception as e:
+            logger.error(f"Error retrieving recommendations for {candidate_id}: {e}")
+            return []
+    
+    def get_recommendations_for_job(
+        self,
+        job_id: str,
+        top_k: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve saved recommendations for a job (best candidates)
+        
+        Args:
+            job_id: Unique job identifier
+            top_k: Number of top candidates to return
+            
+        Returns:
+            List of recommendation dictionaries
+        """
+        try:
+            if top_k:
+                query = """
+                    SELECT * FROM recommendations 
+                    WHERE job_id = %s 
+                    ORDER BY match_score DESC 
+                    LIMIT %s
+                """
+                self.cursor.execute(query, (job_id, top_k))
+            else:
+                query = """
+                    SELECT * FROM recommendations 
+                    WHERE job_id = %s 
+                    ORDER BY match_score DESC
+                """
+                self.cursor.execute(query, (job_id,))
+            
+            results = self.cursor.fetchall()
+            columns = [desc[0] for desc in self.cursor.description]
+            
+            return [dict(zip(columns, row)) for row in results]
+            
+        except Exception as e:
+            logger.error(f"Error retrieving recommendations for job {job_id}: {e}")
+            return []
+    
+    def get_recommendation_count(self) -> int:
+        """
+        Get total count of recommendations in database
+        
+        Returns:
+            Number of recommendations
+        """
+        try:
+            self.cursor.execute("SELECT COUNT(*) FROM recommendations")
+            return self.cursor.fetchone()[0]
+        except Exception as e:
+            logger.error(f"Error getting recommendation count: {e}")
             return 0
     
     def close(self):
