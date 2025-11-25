@@ -6,7 +6,9 @@ import sys
 import logging
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 from src.config import config
 from src.database_manager import DatabaseManager
@@ -20,23 +22,115 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _ensure_list(embedding):
+def process_candidate_worker(
+    candidate_id: str,
+    db_config: dict,
+    engine_weights: Optional[Dict[str, float]],
+    top_k: Optional[int],
+    save_to_db: bool,
+    output_dir: Optional[str]
+) -> Dict[str, Any]:
     """
-    Ensure embedding is a list of floats
+    Worker function to process a single candidate in parallel.
+    Each worker gets its own database connection (thread-safe).
     
     Args:
-        embedding: Embedding as string or list
+        candidate_id: Candidate identifier
+        db_config: Database configuration for creating connection
+        engine_weights: Recommendation engine weights
+        top_k: Number of top recommendations
+        save_to_db: Whether to save to database
+        output_dir: Output directory for JSON files
         
     Returns:
-        List of floats
+        Result dictionary with statistics
     """
-    if isinstance(embedding, str):
-        # Remove brackets and split by comma
-        embedding = embedding.strip('[]')
-        return [float(x) for x in embedding.split(',')]
-    elif isinstance(embedding, list):
-        return [float(x) for x in embedding]
-    return embedding
+    result = {
+        'candidate_id': candidate_id,
+        'success': False,
+        'recommendations_count': 0,
+        'saved_to_db': 0,
+        'error': None
+    }
+    
+    # Each worker creates its own DB connection (thread-safe)
+    db_manager = None
+    try:
+        db_manager = DatabaseManager(db_config)
+        engine = RecommendationEngine(weights=engine_weights)
+        
+        # Get candidate data
+        candidate = db_manager.get_candidate(candidate_id)
+        if not candidate:
+            result['error'] = 'Candidate not found'
+            return result
+        
+        candidate_name = candidate.get('name', 'Unknown')
+        
+        # Get ALL jobs with pre-computed similarity from PostgreSQL
+        # Uses pgvector's optimized C code and IVFFLAT index
+        jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
+            candidate_id
+        )
+        
+        if not jobs_with_similarity:
+            result['error'] = 'No jobs with embeddings found'
+            return result
+        
+        # Generate recommendations (Python does skills/exp/edu scoring only)
+        recommendations = engine.rank_jobs_for_candidate(
+            candidate=candidate,
+            jobs_with_similarity=jobs_with_similarity,
+            top_k=top_k
+        )
+        
+        result['recommendations_count'] = len(recommendations['recommendations'])
+        
+        # Save to database using BATCH insert (efficient)
+        if save_to_db and recommendations['recommendations']:
+            batch_recs = [
+                {
+                    'candidate_id': candidate_id,
+                    'job_id': rec['job_id'],
+                    'match_score': rec['match_score'],
+                    'skills_match': rec['matching_factors']['skills_match'],
+                    'experience_match': rec['matching_factors']['experience_match'],
+                    'education_match': rec['matching_factors']['education_match'],
+                    'semantic_similarity': rec['matching_factors']['semantic_similarity'],
+                    'matched_skills': rec['matched_skills'],
+                    'missing_skills': rec['missing_skills'],
+                    'explanation': rec['explanation']
+                }
+                for rec in recommendations['recommendations']
+            ]
+            
+            saved_count = db_manager.save_recommendations_batch(batch_recs)
+            result['saved_to_db'] = saved_count
+        
+        # Save to file if output directory specified
+        if output_dir:
+            output_path = Path(output_dir)
+            output_path.mkdir(parents=True, exist_ok=True)
+            
+            output_file = output_path / f"{candidate_id}_recommendations.json"
+            with open(output_file, 'w') as f:
+                json.dump(recommendations, f, indent=2)
+        
+        result['success'] = True
+        logger.info(
+            f"✓ Processed {candidate_id} ({candidate_name}): "
+            f"{result['recommendations_count']} recommendations"
+        )
+        
+    except Exception as e:
+        result['error'] = str(e)
+        logger.error(f"✗ Error processing {candidate_id}: {e}")
+    
+    finally:
+        if db_manager:
+            db_manager.close()
+    
+    return result
 
 
 def generate_all_recommendations(
@@ -44,146 +138,137 @@ def generate_all_recommendations(
     engine: RecommendationEngine,
     top_k: Optional[int] = None,
     save_to_db: bool = True,
-    output_dir: Optional[str] = None
+    output_dir: Optional[str] = None,
+    max_workers: int = 10
 ) -> dict:
     """
-    Generate recommendations for all candidates
+    Generate recommendations for all candidates using OPTIMIZED PARALLEL approach:
+    - Batch read candidate IDs from database
+    - Process multiple candidates in parallel using ThreadPoolExecutor
+    - Each worker has its own database connection (thread-safe)
+    - Use PostgreSQL pgvector for similarity computation (fast)
+    - Batch save to database (efficient)
     
     Args:
-        db_manager: Database manager instance
-        engine: Recommendation engine instance
+        db_manager: Database manager instance (only for initial queries)
+        engine: Recommendation engine instance (for getting weights)
         top_k: Number of top recommendations per candidate (None = all)
         save_to_db: Whether to save recommendations to database
         output_dir: Directory to save JSON output files (optional)
+        max_workers: Number of parallel worker threads (default: 10)
         
     Returns:
         Statistics dictionary
     """
-    logger.info("Starting recommendation generation...")
+    start_time = time.time()
     
-    # Retrieve all candidates and jobs
-    logger.info("Retrieving candidates from database...")
-    candidates = db_manager.get_all_candidates() # TODO: make it more memory efficient for large datasets
-    logger.info(f"Found {len(candidates)} candidates")
+    logger.info("=" * 80)
+    logger.info("Starting PARALLEL OPTIMIZED recommendation generation")
+    logger.info(f"Using {max_workers} parallel workers")
+    logger.info("Using PostgreSQL pgvector for similarity computation")
+    logger.info("=" * 80)
     
-    logger.info("Retrieving jobs from database...")
-    jobs = db_manager.get_all_jobs()  # TODO: make it more memory efficient for large datasets
-    logger.info(f"Found {len(jobs)} jobs")
+    # Get candidate IDs only (memory efficient - no full data)
+    logger.info("Retrieving candidate IDs...")
+    candidate_ids = db_manager.get_all_candidate_ids()
+    logger.info(f"Found {len(candidate_ids)} candidates")
     
-    if not candidates:
+    # Get job count for stats
+    job_count = db_manager.get_job_count()
+    logger.info(f"Found {job_count} jobs")
+    
+    if not candidate_ids:
         logger.error("No candidates found in database")
         return {'error': 'No candidates found'}
     
-    if not jobs:
+    if job_count == 0:
         logger.error("No jobs found in database")
         return {'error': 'No jobs found'}
     
-    # Retrieve all embeddings
-    logger.info("Retrieving embeddings...")
-    candidate_embeddings = db_manager.get_all_candidate_embeddings() # TODO: make it more memory efficient for large datasets
-    job_embeddings = db_manager.get_all_job_embeddings()
-    
-    # Convert embeddings to lists if they're strings
-    candidate_embeddings = {
-        cid: _ensure_list(emb) for cid, emb in candidate_embeddings.items()
-    }
-    job_embeddings = {
-        jid: _ensure_list(emb) for jid, emb in job_embeddings.items()
-    }
-    
-    logger.info(f"Found {len(candidate_embeddings)} candidate embeddings") # TODO: make it more memory efficient for large datasets
-    logger.info(f"Found {len(job_embeddings)} job embeddings")
-    
-    # Generate recommendations for each candidate
+    # Initialize statistics
     stats = {
-        'total_candidates': len(candidates),
-        'total_jobs': len(jobs),
+        'total_candidates': len(candidate_ids),
+        'total_jobs': job_count,
         'processed_candidates': 0,
+        'successful_candidates': 0,
+        'failed_candidates': 0,
         'total_recommendations': 0,
         'saved_to_db': 0,
-        'saved_to_files': 0
+        'max_workers': max_workers,
+        'elapsed_time_seconds': 0
     }
     
-    all_recommendations = []
+    # Get DB config and engine weights for workers
+    db_config = db_manager.db_config
+    engine_weights = engine.weights
     
-    for candidate in candidates:
-        candidate_id = candidate['candidate_id']
-        candidate_name = candidate.get('name', 'Unknown')
+    logger.info(f"\nStarting parallel processing with {max_workers} workers...")
+    logger.info("-" * 80)
+    
+    # Process candidates in parallel using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_candidate = {
+            executor.submit(
+                process_candidate_worker,
+                candidate_id,
+                db_config,
+                engine_weights,
+                top_k,
+                save_to_db,
+                output_dir
+            ): candidate_id
+            for candidate_id in candidate_ids
+        }
         
-        logger.info(f"Processing candidate: {candidate_id} ({candidate_name})")
-        
-        # Get candidate embedding
-        candidate_embedding = candidate_embeddings.get(candidate_id)
-        
-        if not candidate_embedding:
-            logger.warning(f"No embedding found for candidate {candidate_id}, skipping")
-            continue
-        
-        # Generate recommendations
-        try:
-            recommendations = engine.rank_jobs_for_candidate(
-                candidate=candidate,
-                candidate_embedding=candidate_embedding,
-                jobs=jobs,
-                job_embeddings=job_embeddings,
-                top_k=top_k
-            )
-            
-            all_recommendations.append(recommendations)
-            stats['processed_candidates'] += 1
-            stats['total_recommendations'] += len(recommendations['recommendations'])
-            
-            logger.info(
-                f"Generated {len(recommendations['recommendations'])} recommendations "
-                f"for {candidate_id}"
-            )
-            
-            # Save to database
-            if save_to_db:
-                saved_count = 0
-                for rec in recommendations['recommendations']:
-                    success = db_manager.save_recommendation(
-                        candidate_id=candidate_id,
-                        job_id=rec['job_id'],
-                        match_score=rec['match_score'],
-                        skills_match=rec['matching_factors']['skills_match'],
-                        experience_match=rec['matching_factors']['experience_match'],
-                        education_match=rec['matching_factors']['education_match'],
-                        semantic_similarity=rec['matching_factors']['semantic_similarity'],
-                        matched_skills=rec['matched_skills'],
-                        missing_skills=rec['missing_skills'],
-                        explanation=rec['explanation']
+        # Collect results as they complete
+        for future in as_completed(future_to_candidate):
+            candidate_id = future_to_candidate[future]
+            try:
+                result = future.result()
+                
+                stats['processed_candidates'] += 1
+                
+                if result['success']:
+                    stats['successful_candidates'] += 1
+                    stats['total_recommendations'] += result['recommendations_count']
+                    stats['saved_to_db'] += result['saved_to_db']
+                else:
+                    stats['failed_candidates'] += 1
+                    logger.warning(
+                        f"Failed to process {candidate_id}: {result.get('error', 'Unknown error')}"
                     )
-                    if success:
-                        saved_count += 1
                 
-                stats['saved_to_db'] += saved_count
-                logger.info(f"Saved {saved_count} recommendations to database")
-            
-            # Save to file if output directory specified
-            if output_dir:
-                output_path = Path(output_dir)
-                output_path.mkdir(parents=True, exist_ok=True)
+                # Progress indicator
+                if stats['processed_candidates'] % 10 == 0:
+                    logger.info(
+                        f"Progress: {stats['processed_candidates']}/{len(candidate_ids)} "
+                        f"({stats['processed_candidates']/len(candidate_ids)*100:.1f}%) "
+                        f"- Success: {stats['successful_candidates']}, "
+                        f"Failed: {stats['failed_candidates']}"
+                    )
                 
-                output_file = output_path / f"{candidate_id}_recommendations.json"
-                with open(output_file, 'w') as f:
-                    json.dump(recommendations, f, indent=2)
-                
-                stats['saved_to_files'] += 1
-                logger.info(f"Saved recommendations to {output_file}")
-        
-        except Exception as e:
-            logger.error(f"Error processing candidate {candidate_id}: {e}")
-            continue
+            except Exception as e:
+                stats['failed_candidates'] += 1
+                logger.error(f"Exception processing {candidate_id}: {e}")
+    
+    elapsed_time = time.time() - start_time
+    stats['elapsed_time_seconds'] = round(elapsed_time, 2)
     
     logger.info("=" * 80)
-    logger.info("RECOMMENDATION GENERATION COMPLETE")
+    logger.info("PARALLEL RECOMMENDATION GENERATION COMPLETE")
+    logger.info("=" * 80)
     logger.info(f"Total candidates: {stats['total_candidates']}")
     logger.info(f"Total jobs: {stats['total_jobs']}")
     logger.info(f"Processed candidates: {stats['processed_candidates']}")
+    logger.info(f"  ✓ Successful: {stats['successful_candidates']}")
+    logger.info(f"  ✗ Failed: {stats['failed_candidates']}")
     logger.info(f"Total recommendations generated: {stats['total_recommendations']}")
     logger.info(f"Saved to database: {stats['saved_to_db']}")
-    logger.info(f"Saved to files: {stats['saved_to_files']}")
+    logger.info(f"Parallel workers: {max_workers}")
+    logger.info(f"Total time: {stats['elapsed_time_seconds']} seconds")
+    logger.info(f"Average time per candidate: {stats['elapsed_time_seconds']/max(stats['processed_candidates'], 1):.2f} seconds")
+    logger.info(f"Throughput: {stats['processed_candidates']/elapsed_time:.2f} candidates/second")
     logger.info("=" * 80)
     
     return stats
@@ -198,7 +283,7 @@ def generate_recommendations_for_candidate(
     output_file: Optional[str] = None
 ) -> dict:
     """
-    Generate recommendations for a specific candidate
+    Generate recommendations for a specific candidate using OPTIMIZED approach
     
     Args:
         db_manager: Database manager instance
@@ -212,6 +297,7 @@ def generate_recommendations_for_candidate(
         Recommendations dictionary
     """
     logger.info(f"Generating recommendations for candidate: {candidate_id}")
+    logger.info("Using PostgreSQL pgvector for similarity computation")
     
     # Get candidate
     candidate = db_manager.get_candidate(candidate_id)
@@ -219,57 +305,50 @@ def generate_recommendations_for_candidate(
         logger.error(f"Candidate {candidate_id} not found")
         return {'error': 'Candidate not found'}
     
-    # Get candidate embedding
-    candidate_embedding = db_manager.get_candidate_embedding(candidate_id)
-    if not candidate_embedding:
-        logger.error(f"No embedding found for candidate {candidate_id}")
-        return {'error': 'Candidate embedding not found'}
+    # Get ALL jobs with pre-computed similarity from PostgreSQL
+    logger.info("Fetching jobs with pre-computed similarities from database...")
+    jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
+        candidate_id
+    )
     
-    # Convert embedding to list if it's a string
-    candidate_embedding = _ensure_list(candidate_embedding)
+    if not jobs_with_similarity:
+        logger.error(
+            f"No jobs with embeddings found for candidate {candidate_id}"
+        )
+        return {'error': 'No jobs with embeddings found'}
     
-    # Get all jobs and embeddings
-    jobs = db_manager.get_all_jobs()
-    job_embeddings = db_manager.get_all_job_embeddings()
+    logger.info(f"Retrieved {len(jobs_with_similarity)} jobs with similarities")
     
-    # Convert job embeddings to lists if they're strings
-    job_embeddings = {
-        jid: _ensure_list(emb) for jid, emb in job_embeddings.items()
-    }
-    
-    logger.info(f"Found {len(jobs)} jobs with {len(job_embeddings)} embeddings")
-    
-    # Generate recommendations
+    # Generate recommendations (semantic similarity already computed!)
     recommendations = engine.rank_jobs_for_candidate(
         candidate=candidate,
-        candidate_embedding=candidate_embedding,
-        jobs=jobs,
-        job_embeddings=job_embeddings,
+        jobs_with_similarity=jobs_with_similarity,
         top_k=top_k
     )
     
     logger.info(f"Generated {len(recommendations['recommendations'])} recommendations")
     
-    # Save to database
-    if save_to_db:
-        saved_count = 0
-        for rec in recommendations['recommendations']:
-            success = db_manager.save_recommendation(
-                candidate_id=candidate_id,
-                job_id=rec['job_id'],
-                match_score=rec['match_score'],
-                skills_match=rec['matching_factors']['skills_match'],
-                experience_match=rec['matching_factors']['experience_match'],
-                education_match=rec['matching_factors']['education_match'],
-                semantic_similarity=rec['matching_factors']['semantic_similarity'],
-                matched_skills=rec['matched_skills'],
-                missing_skills=rec['missing_skills'],
-                explanation=rec['explanation']
-            )
-            if success:
-                saved_count += 1
+    # Save to database using batch insert
+    if save_to_db and recommendations['recommendations']:
+        # Prepare batch data
+        batch_recs = [
+            {
+                'candidate_id': candidate_id,
+                'job_id': rec['job_id'],
+                'match_score': rec['match_score'],
+                'skills_match': rec['matching_factors']['skills_match'],
+                'experience_match': rec['matching_factors']['experience_match'],
+                'education_match': rec['matching_factors']['education_match'],
+                'semantic_similarity': rec['matching_factors']['semantic_similarity'],
+                'matched_skills': rec['matched_skills'],
+                'missing_skills': rec['missing_skills'],
+                'explanation': rec['explanation']
+            }
+            for rec in recommendations['recommendations']
+        ]
         
-        logger.info(f"Saved {saved_count} recommendations to database")
+        saved_count = db_manager.save_recommendations_batch(batch_recs)
+        logger.info(f"Batch saved {saved_count} recommendations to database")
     
     # Save to file
     if output_file:
@@ -318,6 +397,12 @@ def main():
     parser.add_argument(
         '--weights',
         help='Custom weights as JSON: {"skills":0.4,"experience":0.3,"education":0.1,"semantic":0.2}'
+    )
+    parser.add_argument(
+        '--workers',
+        type=int,
+        default=10,
+        help='Number of parallel worker threads for processing candidates (default: 10)'
     )
     
     args = parser.parse_args()
@@ -368,13 +453,14 @@ def main():
                     print(f"   {rec['explanation']}")
                 print("\n" + "=" * 80)
         else:
-            # All candidates
+            # All candidates (parallel processing)
             stats = generate_all_recommendations(
                 db_manager=db_manager,
                 engine=engine,
                 top_k=args.top_k,
                 save_to_db=not args.no_save_db,
-                output_dir=args.output_dir
+                output_dir=args.output_dir,
+                max_workers=args.workers
             )
             
             if 'error' in stats:

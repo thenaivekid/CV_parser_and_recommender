@@ -398,19 +398,17 @@ class RecommendationEngine:
     def rank_jobs_for_candidate(
         self,
         candidate: Dict[str, Any],
-        candidate_embedding: List[float],
-        jobs: List[Dict[str, Any]],
-        job_embeddings: Dict[str, List[float]],
+        jobs_with_similarity: List[Dict[str, Any]],
         top_k: Optional[int] = None
     ) -> Dict[str, Any]:
         """
-        Rank all jobs for a candidate and return recommendations
+        Rank all jobs for a candidate and return recommendations.
+        OPTIMIZED: Expects jobs with pre-computed semantic_similarity from database.
         
         Args:
             candidate: Candidate data dictionary
-            candidate_embedding: Candidate's embedding vector
-            jobs: List of all job dictionaries
-            job_embeddings: Dictionary mapping job_id to embedding vector
+            jobs_with_similarity: List of job dictionaries WITH 'semantic_similarity' field
+                                  (pre-computed by database using pgvector)
             top_k: Number of top recommendations to return (None = all)
             
         Returns:
@@ -421,41 +419,34 @@ class RecommendationEngine:
         
         recommendations = []
         
-        for job in jobs:
+        for job in jobs_with_similarity:
             job_id = job['job_id']
-            job_embedding = job_embeddings.get(job_id)
             
-            if not job_embedding:
-                logger.warning(f"No embedding found for job {job_id}, skipping")
-                # raise ValueError(f"No embedding found for job {job_id}")
+            # Get pre-computed semantic similarity from database (already normalized 0-1)
+            semantic_score = float(job.get('semantic_similarity', 0.5))
             
-            # Calculate individual match scores
+            # Calculate individual match scores (skills, experience, education in Python)
             skills_score, matched_skills, missing_skills = self.calculate_skills_match(
-                candidate.get('skills_technical', []),
-                candidate.get('skills_soft', []),
-                job.get('skills_technical', []),
-                job.get('skills_soft', [])
+                candidate.get('skills_technical', []) or [],
+                candidate.get('skills_soft', []) or [],
+                job.get('skills_technical', []) or [],
+                job.get('skills_soft', []) or []
             )
             
             experience_score, candidate_years_exp = self.calculate_experience_match(
-                candidate.get('work_experience', []),
+                candidate.get('work_experience', []) or [],
                 job.get('experience_years_min'),
                 job.get('experience_years_max'),
                 job.get('seniority_level', '')
             )
             
             education_score = self.calculate_education_match(
-                candidate.get('education', []),
+                candidate.get('education', []) or [],
                 job.get('education_required', ''),
                 job.get('education_field', '')
             )
             
-            semantic_score = self.calculate_semantic_similarity(
-                candidate_embedding,
-                job_embedding
-            )
-            
-            # Calculate overall match score
+            # Calculate overall match score using pre-computed semantic similarity
             match_score = self.calculate_overall_match(
                 skills_score,
                 experience_score,
@@ -463,7 +454,7 @@ class RecommendationEngine:
                 semantic_score
             )
             
-            # Generate explanation (reuse candidate_years_exp from calculate_experience_match)
+            # Generate explanation
             explanation = self.generate_explanation(
                 candidate_name,
                 job.get('job_title', ''),
@@ -508,6 +499,6 @@ class RecommendationEngine:
             'candidate_id': candidate_id,
             'candidate_name': candidate_name,
             'recommendations': recommendations,
-            'total_jobs_evaluated': len(jobs),
+            'total_jobs_evaluated': len(jobs_with_similarity),
             'generated_at': datetime.now().isoformat()
         }

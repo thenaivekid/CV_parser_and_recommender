@@ -225,6 +225,31 @@ class DatabaseManager:
             logger.error(f"Error retrieving candidate {candidate_id}: {e}")
             return None
     
+    def get_all_candidate_ids(self, profession: Optional[str] = None) -> List[str]:
+        """
+        Retrieve all candidate IDs (memory efficient)
+        
+        Args:
+            profession: Optional profession filter
+            
+        Returns:
+            List of candidate IDs
+        """
+        try:
+            if profession:
+                query = "SELECT candidate_id FROM candidates WHERE profession = %s"
+                self.cursor.execute(query, (profession,))
+            else:
+                query = "SELECT candidate_id FROM candidates"
+                self.cursor.execute(query)
+            
+            results = self.cursor.fetchall()
+            return [row[0] for row in results]
+            
+        except Exception as e:
+            logger.error(f"Error retrieving candidate IDs: {e}")
+            return []
+    
     def get_all_candidates(self, profession: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Retrieve all candidates, optionally filtered by profession
@@ -609,6 +634,76 @@ class DatabaseManager:
             logger.error(f"Error retrieving all job embeddings: {e}")
             return {}
     
+    def get_all_jobs_with_similarity_for_candidate(
+        self, 
+        candidate_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Get ALL jobs with pre-computed semantic similarity for a candidate.
+        Uses PostgreSQL pgvector for efficient similarity computation.
+        
+        This is the OPTIMIZED method that:
+        1. Computes similarity directly in PostgreSQL (fast C code)
+        2. Uses IVFFLAT vector index for speed
+        3. Returns all jobs with similarity already computed
+        4. Avoids loading embeddings into Python memory
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            
+        Returns:
+            List of job dictionaries with 'semantic_similarity' field added
+        """
+        try:
+            # Query that joins jobs with their embeddings and computes similarity
+            # using pgvector's cosine distance operator (<=>)
+            query = """
+                SELECT 
+                    j.job_id,
+                    j.job_title,
+                    j.company,
+                    j.description,
+                    j.responsibilities,
+                    j.skills_technical,
+                    j.skills_soft,
+                    j.experience_years_min,
+                    j.experience_years_max,
+                    j.seniority_level,
+                    j.education_required,
+                    j.education_field,
+                    j.certifications,
+                    j.languages,
+                    j.location,
+                    1 - (je.embedding <=> ce.embedding) AS semantic_similarity
+                FROM 
+                    jobs j
+                    INNER JOIN job_embeddings je ON j.job_id = je.job_id
+                    CROSS JOIN candidate_embeddings ce
+                WHERE 
+                    ce.candidate_id = %s
+                    AND je.embedding IS NOT NULL
+                    AND ce.embedding IS NOT NULL
+            """
+            
+            self.cursor.execute(query, (candidate_id,))
+            results = self.cursor.fetchall()
+            columns = [desc[0] for desc in self.cursor.description]
+            
+            jobs_with_similarity = [dict(zip(columns, row)) for row in results]
+            
+            logger.info(
+                f"Retrieved {len(jobs_with_similarity)} jobs with pre-computed "
+                f"similarity for candidate {candidate_id}"
+            )
+            
+            return jobs_with_similarity
+            
+        except Exception as e:
+            logger.error(
+                f"Error retrieving jobs with similarity for candidate {candidate_id}: {e}"
+            )
+            return []
+    
     # ========== RECOMMENDATION METHODS ==========
     
     def save_recommendation(
@@ -684,33 +779,74 @@ class DatabaseManager:
         recommendations: List[Dict[str, Any]]
     ) -> int:
         """
-        Save multiple recommendations in batch
+        Save multiple recommendations in batch using execute_values for efficiency
         
         Args:
-            recommendations: List of recommendation dictionaries
+            recommendations: List of recommendation dictionaries with keys:
+                candidate_id, job_id, match_score, skills_match, experience_match,
+                education_match, semantic_similarity, matched_skills, missing_skills, explanation
             
         Returns:
             Number of successfully saved recommendations
         """
-        success_count = 0
+        if not recommendations:
+            return 0
         
-        for rec in recommendations:
-            if self.save_recommendation(
-                rec['candidate_id'],
-                rec['job_id'],
-                rec['match_score'],
-                rec['skills_match'],
-                rec['experience_match'],
-                rec['education_match'],
-                rec['semantic_similarity'],
-                rec['matched_skills'],
-                rec['missing_skills'],
-                rec['explanation']
-            ):
-                success_count += 1
-        
-        logger.info(f"Saved {success_count}/{len(recommendations)} recommendations")
-        return success_count
+        try:
+            # Prepare data for batch insert
+            values = [
+                (
+                    rec['candidate_id'],
+                    rec['job_id'],
+                    rec['match_score'],
+                    rec['skills_match'],
+                    rec['experience_match'],
+                    rec['education_match'],
+                    rec['semantic_similarity'],
+                    rec['matched_skills'],
+                    rec['missing_skills'],
+                    rec['explanation'],
+                    datetime.now()
+                )
+                for rec in recommendations
+            ]
+            
+            # Batch insert with execute_values (much faster than individual inserts)
+            insert_query = """
+                INSERT INTO recommendations (
+                    candidate_id, job_id, match_score,
+                    skills_match, experience_match, education_match, semantic_similarity,
+                    matched_skills, missing_skills, explanation, created_at
+                ) VALUES %s
+                ON CONFLICT (candidate_id, job_id) 
+                DO UPDATE SET
+                    match_score = EXCLUDED.match_score,
+                    skills_match = EXCLUDED.skills_match,
+                    experience_match = EXCLUDED.experience_match,
+                    education_match = EXCLUDED.education_match,
+                    semantic_similarity = EXCLUDED.semantic_similarity,
+                    matched_skills = EXCLUDED.matched_skills,
+                    missing_skills = EXCLUDED.missing_skills,
+                    explanation = EXCLUDED.explanation,
+                    created_at = EXCLUDED.created_at
+            """
+            
+            execute_values(
+                self.cursor,
+                insert_query,
+                values,
+                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            )
+            
+            self.conn.commit()
+            success_count = len(recommendations)
+            logger.info(f"Batch saved {success_count} recommendations")
+            return success_count
+            
+        except Exception as e:
+            logger.error(f"Error batch saving recommendations: {e}")
+            self.conn.rollback()
+            return 0
     
     def get_recommendations_for_candidate(
         self,
