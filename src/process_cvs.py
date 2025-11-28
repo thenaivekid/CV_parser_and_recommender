@@ -11,11 +11,13 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.resume_parser import ResumeParser
+from cv_parser import CVParser
 from src.embedding_generator import EmbeddingGenerator
 from src.database_manager import DatabaseManager
 from src.cv_batch_processor_utils import BatchProcessor, ParallelBatchProcessor
 from src.config import config
+from src.performance_monitor import get_monitor, set_monitor, PerformanceMonitor
+from src.dashboard_generator import DashboardGenerator
 
 # Configure logging
 logging.basicConfig(
@@ -108,7 +110,7 @@ Examples:
         logger.info("\n📦 Initializing components...")
         
         logger.info("  → Initializing resume parser...")
-        resume_parser = ResumeParser(provider=config.llm_parser)
+        cv_parser = CVParser(provider=config.llm_parser)
         
         logger.info("  → Loading embedding model...")
         embedding_gen = EmbeddingGenerator(model_name=config.embd_model)
@@ -116,16 +118,24 @@ Examples:
         logger.info("  → Connecting to database...")
         db_manager = DatabaseManager(config.database)
         
+        # Initialize performance monitor with database connection
+        monitor = PerformanceMonitor(db_manager)
+        set_monitor(monitor)
+        
+        # Set dataset context (will be updated during processing)
+        num_jobs = db_manager.get_job_count()
+        monitor.set_dataset_context(num_jobs=num_jobs)
+        
         logger.info("✓ All components initialized\n")
         
         # Create batch processor
         if args.no_parallel:
             logger.info("Using sequential batch processor")
-            processor = BatchProcessor(resume_parser, embedding_gen, db_manager)
+            processor = BatchProcessor(cv_parser, embedding_gen, db_manager)
         else:
             logger.info(f"Using parallel batch processor with {args.workers or config.num_workers} workers")
             processor = ParallelBatchProcessor(
-                resume_parser, 
+                cv_parser, 
                 embedding_gen, 
                 db_manager,
                 num_workers=args.workers
@@ -152,6 +162,18 @@ Examples:
         db_manager.close()
         
         logger.info("\n✅ Processing completed successfully!")
+        
+        # Generate performance dashboard
+        logger.info("\n📊 Generating performance dashboard...")
+        try:
+            output_dir = Path("data/performance_reports")
+            dashboard_gen = DashboardGenerator()
+            report = dashboard_gen.generate_report(output_dir)
+            logger.info(f"✓ Performance dashboard saved to {output_dir}")
+            logger.info(f"  View: {output_dir}/performance_dashboard_*.html")
+        except Exception as e:
+            logger.warning(f"Could not generate dashboard: {e}")
+        
         return 0
         
     except KeyboardInterrupt:

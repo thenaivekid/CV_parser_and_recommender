@@ -8,6 +8,8 @@ from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
+from src.performance_monitor import track_performance, track_time
+
 logger = logging.getLogger(__name__)
 
 
@@ -395,6 +397,7 @@ class RecommendationEngine:
         
         return " | ".join(explanations)
     
+    @track_performance('recommendation_generation')
     def rank_jobs_for_candidate(
         self,
         candidate: Dict[str, Any],

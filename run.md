@@ -18,7 +18,8 @@ docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\dt"
 
 docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\d candidates"
 
-docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT count(*) FROM recommendations;"
+docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT count(*) FROM performance_metrics;"
+
 
 docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT candidate_id FROM candidate_embeddings;"
 
@@ -40,5 +41,8 @@ git push
 
 
 <!-- parser -->
-python src/resume_parser.py /workspaces/CV_parser_and_recommender/resume-dataset/data/data/ENGINEERING/10030015.pdf -o data/outputs/ENGINEERING_10030015.pdf.json
-python src/resume_parser.py /workspaces/CV_parser_and_recommender/resume-dataset/data/data/ENGINEERING/10030015.pdf -o data/outputs/ENGINEERING_10030015.pdf.json --provider gemini
+python src/cv_parser.py /workspaces/CV_parser_and_recommender/resume-dataset/data/data/ENGINEERING/10030015.pdf -o data/outputs/ENGINEERING_10030015.pdf.json
+python src/cv_parser.py /workspaces/CV_parser_and_recommender/resume-dataset/data/data/ENGINEERING/10030015.pdf -o data/outputs/ENGINEERING_10030015.pdf.json --provider gemini
+
+<!-- test perf monitoring -->
+python tests/test_performance_monitoring.py

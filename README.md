@@ -14,7 +14,7 @@ The resume parser intelligently extracts structured data from PDF CVs using LLM-
 
 **Usage:**
 ```bash
-python src/resume_parser.py path/to/resume.pdf -o output.json --provider gemini
+python src/cv_parser.py path/to/resume.pdf -o output.json --provider gemini
 ```
 
 ## Matching algorithm

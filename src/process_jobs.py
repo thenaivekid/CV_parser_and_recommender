@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.embedding_generator import EmbeddingGenerator
 from src.database_manager import DatabaseManager
 from src.config import config
+from src.performance_monitor import get_monitor, set_monitor, PerformanceMonitor, track_time
+from src.dashboard_generator import DashboardGenerator
 
 # Configure logging
 logging.basicConfig(
@@ -125,27 +127,30 @@ class JobProcessor:
             # Create job text for embedding
             job_text = self._create_job_text(job_json)
             
-            # Generate embedding
+            # Generate embedding with timing
             logger.debug(f"  → Generating embedding for {job_id}, text length: {len(job_text)}")
-            embedding_result = self.embedding_gen.generate_embedding(job_text)
-            embedding = embedding_result
+            with track_time('job_embedding_generation', entity_id=job_id):
+                embedding_result = self.embedding_gen.generate_embedding(job_text)
+                embedding = embedding_result
             
-            # Store in database
+            # Store in database with timing
             logger.debug(f"  → Storing job {job_id} in database")
-            if not self.db_manager.insert_job(job_id, job_json):
-                logger.error(f"  ❌ Failed to insert job: {job_id}")
-                self.stats['failed'] += 1
-                return False
+            with track_time('job_db_insert', entity_id=job_id):
+                if not self.db_manager.insert_job(job_id, job_json):
+                    logger.error(f"  ❌ Failed to insert job: {job_id}")
+                    self.stats['failed'] += 1
+                    return False
             
             logger.debug(f"  → Storing embedding for {job_id}")
-            if not self.db_manager.insert_job_embedding(
-                job_id, 
-                embedding, 
-                self.embedding_gen.model_name
-            ):
-                logger.error(f"  ❌ Failed to insert embedding: {job_id}")
-                self.stats['failed'] += 1
-                return False
+            with track_time('job_embedding_db_insert', entity_id=job_id):
+                if not self.db_manager.insert_job_embedding(
+                    job_id, 
+                    embedding, 
+                    self.embedding_gen.model_name
+                ):
+                    logger.error(f"  ❌ Failed to insert embedding: {job_id}")
+                    self.stats['failed'] += 1
+                    return False
             
             logger.info(f"  ✓ Successfully processed: {job_id}")
             self.stats['success'] += 1
@@ -257,6 +262,15 @@ Examples:
         logger.info("  → Connecting to database...")
         db_manager = DatabaseManager(config.database)
         
+        # Initialize performance monitor with database connection
+        monitor = PerformanceMonitor(db_manager)
+        set_monitor(monitor)
+        
+        # Set dataset context
+        num_cvs = db_manager.get_candidate_count()
+        num_jobs = db_manager.get_job_count()
+        monitor.set_dataset_context(num_cvs=num_cvs, num_jobs=num_jobs)
+        
         logger.info("✓ All components initialized\n")
         
         # Create processor
@@ -277,6 +291,18 @@ Examples:
         db_manager.close()
         
         logger.info("✅ Processing completed successfully!")
+        
+        # Generate performance dashboard
+        logger.info("\n📊 Generating performance dashboard...")
+        try:
+            output_dir = Path("data/performance_reports")
+            dashboard_gen = DashboardGenerator()
+            report = dashboard_gen.generate_report(output_dir)
+            logger.info(f"✓ Performance dashboard saved to {output_dir}")
+            logger.info(f"  View: {output_dir}/performance_dashboard_*.html")
+        except Exception as e:
+            logger.warning(f"Could not generate dashboard: {e}")
+        
         return 0
         
     except KeyboardInterrupt:

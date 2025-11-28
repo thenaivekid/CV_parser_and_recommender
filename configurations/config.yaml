@@ -8,14 +8,19 @@ embd_model: sentence-transformers/all-mpnet-base-v2
 embd_dimension: 768
 
 # Data processing settings
-num_professions: 4
-num_cv_per_profession: 2
+num_professions: 5
+num_cv_per_profession: 3
 professions:
-  - ARTS
-  - CHEF
-  - FITNESS
-  - INFORMATION-TECHNOLOGY
-  - TEACHER
+  - ACCOUNTANT
+  - ADVOCATE
+  - DESIGNER
+  - FINANCE
+  - HR
+  # - ARTS
+  # - CHEF
+  # - FITNESS
+  # - INFORMATION-TECHNOLOGY
+  # - TEACHER
 
 # Paths
 resume_base_path: /workspaces/CV_parser_and_recommender/resume-dataset/data/data

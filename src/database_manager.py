@@ -8,6 +8,8 @@ from psycopg2.extras import Json, execute_values
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
+from src.performance_monitor import track_time
+
 logger = logging.getLogger(__name__)
 
 
@@ -951,6 +953,116 @@ class DatabaseManager:
         if self.conn:
             self.conn.close()
         logger.info("Database connection closed")
+    
+    # ========== PERFORMANCE METRICS METHODS ==========
+    
+    def insert_performance_metric(self, metric) -> bool:
+        """
+        Insert performance metric into database
+        
+        Args:
+            metric: PerformanceMetric object
+            
+        Returns:
+            True if successful
+        """
+        try:
+            insert_query = """
+                INSERT INTO performance_metrics (
+                    operation_type, entity_id, duration_seconds, success,
+                    error_message, metadata, dataset_size_cvs, dataset_size_jobs, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            self.cursor.execute(insert_query, (
+                metric.operation_type,
+                metric.entity_id,
+                metric.duration_seconds,
+                metric.success,
+                metric.error_message,
+                Json(metric.metadata),
+                metric.dataset_size_cvs,
+                metric.dataset_size_jobs,
+                metric.timestamp
+            ))
+            
+            self.conn.commit()
+            return True
+            
+        except Exception as e:
+            logger.debug(f"Failed to insert performance metric: {e}")
+            self.conn.rollback()
+            return False
+    
+    def insert_query_metric(self, metric) -> bool:
+        """
+        Insert query performance metric into database
+        
+        Args:
+            metric: QueryMetric object
+            
+        Returns:
+            True if successful
+        """
+        try:
+            insert_query = """
+                INSERT INTO query_performance (
+                    query_type, duration_ms, rows_affected, index_used, timestamp
+                ) VALUES (%s, %s, %s, %s, %s)
+            """
+            
+            self.cursor.execute(insert_query, (
+                metric.query_type,
+                metric.duration_ms,
+                metric.rows_affected,
+                metric.index_used,
+                metric.timestamp
+            ))
+            
+            self.conn.commit()
+            return True
+            
+        except Exception as e:
+            logger.debug(f"Failed to insert query metric: {e}")
+            self.conn.rollback()
+            return False
+    
+    def insert_system_metric(self, metric) -> bool:
+        """
+        Insert system metric into database
+        
+        Args:
+            metric: SystemMetric object
+            
+        Returns:
+            True if successful
+        """
+        try:
+            insert_query = """
+                INSERT INTO system_metrics (
+                    cpu_percent, memory_mb, disk_io_mb, active_workers,
+                    throughput_per_min, dataset_size_cvs, dataset_size_jobs, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            self.cursor.execute(insert_query, (
+                metric.cpu_percent,
+                metric.memory_mb,
+                metric.disk_io_mb,
+                metric.active_workers,
+                metric.throughput_per_min,
+                metric.dataset_size_cvs,
+                metric.dataset_size_jobs,
+                metric.timestamp
+            ))
+            
+            self.conn.commit()
+            return True
+            
+        except Exception as e:
+            logger.debug(f"Failed to insert system metric: {e}")
+            self.conn.rollback()
+            return False
     
     def __enter__(self):
         """Context manager entry"""

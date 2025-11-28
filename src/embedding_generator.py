@@ -6,6 +6,8 @@ import logging
 from typing import Tuple, List
 from sentence_transformers import SentenceTransformer
 
+from src.performance_monitor import track_performance
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,6 +94,7 @@ class EmbeddingGenerator:
         text = ' | '.join(parts)
         return text
     
+    @track_performance('embedding_generation')
     def generate_embedding(self, text: str) -> List[float]:
         """
         Generate embedding vector from text

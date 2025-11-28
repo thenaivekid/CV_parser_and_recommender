@@ -48,5 +48,6 @@ uvicorn
 python-multipart
 
 # Performance/Monitoring
+psutil
 pandas
 numpy

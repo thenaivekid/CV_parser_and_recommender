@@ -103,3 +103,51 @@ CREATE INDEX IF NOT EXISTS idx_job_embeddings_vector ON job_embeddings
 -- CREATE INDEX idx_skills_technical ON candidates USING GIN(skills_technical);
 -- -- Create GIN index on skills_soft array
 -- CREATE INDEX idx_skills_soft ON candidates USING GIN(skills_soft);
+
+-- ============================================================================
+-- PERFORMANCE MONITORING TABLES
+-- ============================================================================
+
+-- Performance metrics table - stores operation timing with dataset size context
+CREATE TABLE IF NOT EXISTS performance_metrics (
+    id SERIAL PRIMARY KEY,
+    operation_type VARCHAR(100) NOT NULL,
+    entity_id VARCHAR(255),
+    duration_seconds FLOAT NOT NULL,
+    success BOOLEAN NOT NULL,
+    error_message TEXT,
+    metadata JSONB,
+    dataset_size_cvs INTEGER,
+    dataset_size_jobs INTEGER,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Query performance table - tracks database query metrics
+CREATE TABLE IF NOT EXISTS query_performance (
+    id SERIAL PRIMARY KEY,
+    query_type VARCHAR(100) NOT NULL,
+    duration_ms FLOAT NOT NULL,
+    rows_affected INTEGER,
+    index_used BOOLEAN,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- System metrics table - resource usage snapshots
+CREATE TABLE IF NOT EXISTS system_metrics (
+    id SERIAL PRIMARY KEY,
+    cpu_percent FLOAT,
+    memory_mb FLOAT,
+    disk_io_mb FLOAT,
+    active_workers INTEGER,
+    throughput_per_min FLOAT,
+    dataset_size_cvs INTEGER,
+    dataset_size_jobs INTEGER,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indices for performance queries
+CREATE INDEX IF NOT EXISTS idx_perf_operation_type ON performance_metrics(operation_type);
+CREATE INDEX IF NOT EXISTS idx_perf_timestamp ON performance_metrics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_query_type ON query_performance(query_type);
+CREATE INDEX IF NOT EXISTS idx_query_timestamp ON query_performance(timestamp);
+CREATE INDEX IF NOT EXISTS idx_system_timestamp ON system_metrics(timestamp);

@@ -9,3 +9,4 @@ data/
 .vscode/
 logs/
 *.log
+PERFORMANCE_MONITORING.md

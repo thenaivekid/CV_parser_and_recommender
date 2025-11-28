@@ -9,7 +9,7 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 import traceback
 
-from src.resume_parser import ResumeParser
+from cv_parser import CVParser
 from src.embedding_generator import EmbeddingGenerator
 from src.database_manager import DatabaseManager
 from src.config import config
@@ -22,7 +22,7 @@ class BatchProcessor:
     
     def __init__(
         self,
-        parser: ResumeParser,
+        parser: CVParser,
         embedding_gen: EmbeddingGenerator,
         db_manager: DatabaseManager
     ):
@@ -92,7 +92,7 @@ class BatchProcessor:
             
             # Step 1: Parse PDF
             logger.info(f"Parsing: {pdf_path.name}")
-            resume_json = self.parser.parse_resume(str(pdf_path))
+            resume_json = self.parser.parse_cv(str(pdf_path))
             
             if not resume_json:
                 logger.warning(f"Failed to parse or empty resume: {pdf_path.name}")
@@ -245,7 +245,7 @@ def _process_resume_worker(args: Tuple[Path, str, dict, str, str]) -> Tuple[bool
     
     try:
         # Initialize components in worker process
-        parser = ResumeParser(provider=llm_parser)
+        parser = CVParser(provider=llm_parser)
         embedding_gen = EmbeddingGenerator(model_name=embd_model)
         db_manager = DatabaseManager(db_config)
         
@@ -267,7 +267,7 @@ class ParallelBatchProcessor(BatchProcessor):
     
     def __init__(
         self,
-        parser: ResumeParser,
+        parser: CVParser,
         embedding_gen: EmbeddingGenerator,
         db_manager: DatabaseManager,
         num_workers: Optional[int] = None

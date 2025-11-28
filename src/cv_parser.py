@@ -17,6 +17,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import AzureChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field, field_validator
+from src.performance_monitor import track_performance
 
 # Configure logging
 logging.basicConfig(
@@ -116,7 +117,7 @@ class ResumeData(BaseModel):
     languages: list[Language] = Field(default=[], description="Languages spoken")
 
 
-class ResumeParser:
+class CVParser:
     """Parser for converting PDF resumes to structured JSON with robust error handling"""
     
     # Supported file extensions
@@ -140,7 +141,7 @@ class ResumeParser:
         self._validate_environment()
         self.llm = self._initialize_llm()
         self.parser = JsonOutputParser(pydantic_object=ResumeData)
-        logger.info(f"Initialized ResumeParser with provider: {provider}")
+        logger.info(f"Initialized CVParser with provider: {provider}")
     
     def _validate_environment(self):
         """Validate that required environment variables are set"""
@@ -315,7 +316,8 @@ class ResumeParser:
         
         return data
     
-    def parse_resume(self, pdf_path: str, save_output: bool = False, output_path: str = None) -> dict:
+    @track_performance('cv_parsing')
+    def parse_cv(self, pdf_path: str, save_output: bool = False, output_path: str = None) -> dict:
         """Parse a resume PDF and convert it to structured JSON with comprehensive error handling
         
         Args:
@@ -606,11 +608,11 @@ Examples:
     try:
         # Initialize parser
         print(f"Initializing parser with provider: {args.provider}")
-        resume_parser = ResumeParser(provider=args.provider)
+        cv_parser = CVParser(provider=args.provider)
         
         # Parse resume with save option
         print(f"Parsing resume from: {args.pdf_path}")
-        parsed_data = resume_parser.parse_resume(
+        parsed_data = cv_parser.parse_cv(
             args.pdf_path,
             save_output=True,
             output_path=args.output

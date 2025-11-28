@@ -13,6 +13,8 @@ import time
 from src.config import config
 from src.database_manager import DatabaseManager
 from src.recommendation_engine import RecommendationEngine
+from src.performance_monitor import get_monitor, set_monitor, PerformanceMonitor
+from src.dashboard_generator import DashboardGenerator
 
 # Setup logging
 logging.basicConfig(
@@ -421,6 +423,16 @@ def main():
     try:
         db_manager = DatabaseManager(config.database)
         engine = RecommendationEngine(weights=weights)
+        
+        # Initialize performance monitor
+        monitor = PerformanceMonitor(db_manager)
+        set_monitor(monitor)
+        
+        # Set dataset context
+        num_cvs = db_manager.get_candidate_count()
+        num_jobs = db_manager.get_job_count()
+        monitor.set_dataset_context(num_cvs=num_cvs, num_jobs=num_jobs)
+        
     except Exception as e:
         logger.error(f"Failed to initialize components: {e}")
         sys.exit(1)
@@ -475,6 +487,17 @@ def main():
     
     finally:
         db_manager.close()
+        
+        # Generate performance dashboard
+        logger.info("\n📊 Generating performance dashboard...")
+        try:
+            output_dir_path = Path("data/performance_reports")
+            dashboard_gen = DashboardGenerator()
+            report = dashboard_gen.generate_report(output_dir_path)
+            logger.info(f"✓ Performance dashboard saved to {output_dir_path}")
+            logger.info(f"  View: {output_dir_path}/performance_dashboard_*.html")
+        except Exception as e:
+            logger.warning(f"Could not generate dashboard: {e}")
     
     logger.info("Done!")
 
