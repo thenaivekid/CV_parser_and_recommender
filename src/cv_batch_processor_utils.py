@@ -13,6 +13,7 @@ from cv_parser import CVParser
 from src.embedding_generator import EmbeddingGenerator
 from src.database_manager import DatabaseManager
 from src.config import config
+from src.performance_monitor import get_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +164,11 @@ class BatchProcessor:
         
         stats = {'success': 0, 'failed': 0, 'skipped': 0, 'total': len(pdf_files)}
         
+        # Get performance monitor for system snapshots
+        monitor = get_monitor()
+        
         # Process each file with progress bar
-        for pdf_path in tqdm(pdf_files, desc=f"{profession}", unit="resume"):
+        for idx, pdf_path in enumerate(tqdm(pdf_files, desc=f"{profession}", unit="resume"), 1):
             success, message = self.process_single_resume(pdf_path, profession, skip_existing)
             
             if success:
@@ -173,6 +177,13 @@ class BatchProcessor:
                 stats['skipped'] += 1
             else:
                 stats['failed'] += 1
+            
+            # Record system snapshot every 10 CVs
+            if idx % 2 == 0:
+                monitor.record_system_snapshot(
+                    active_workers=1,
+                    throughput_per_min=(stats['success'] / idx) * 60 if idx > 0 else 0.0
+                )
         
         logger.info(f"\n{profession} Summary:")
         logger.info(f"  Total: {stats['total']}")

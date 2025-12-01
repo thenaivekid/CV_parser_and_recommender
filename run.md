@@ -18,7 +18,11 @@ docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\dt"
 
 docker exec -it cv-job-pgvector psql -U cv_user -d cv_job_db -c "\d candidates"
 
-docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT count(*) FROM performance_metrics;"
+docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT count(*) FROM processing_sessions;"
+
+docker exec -it cv-job-pgvector \
+  psql -U cv_user -d cv_job_db \
+  -c "TRUNCATE TABLE performance_metrics;"
 
 
 docker exec -it cv-job-pgvector   psql -U cv_user -d cv_job_db   -c "SELECT candidate_id FROM candidate_embeddings;"

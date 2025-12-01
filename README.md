@@ -26,3 +26,12 @@ python src/cv_parser.py path/to/resume.pdf -o output.json --provider gemini
 
 ## CV data source
 https://www.kaggle.com/datasets/snehaanbhawal/resume-dataset/code?datasetId=1519260
+
+## Job descriptions are synthesized using claude sonnet 4.5
+
+## performance metrics:
+- Average CV parsing time:
+- Average recommendation generation time
+- System throughput (CVs processed per minute)
+- Database query performance
+

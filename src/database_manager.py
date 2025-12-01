@@ -3,12 +3,13 @@ Database Manager for CV Parser and Recommender System
 Handles all PostgreSQL operations with pgvector support
 """
 import logging
+import time
 import psycopg2
 from psycopg2.extras import Json, execute_values
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from src.performance_monitor import track_time
+from src.performance_monitor import track_time, track_performance, track_query, get_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class DatabaseManager:
         self.db_config = db_config
         self.conn = None
         self.cursor = None
+        self.monitor = None  # Will be set lazily via get_monitor() when needed
         self._connect()
     
     def _connect(self):
@@ -65,6 +67,7 @@ class DatabaseManager:
             logger.error(f"Error checking candidate existence: {e}")
             return False
     
+    @track_performance('cv_db_insert')
     def insert_candidate(self, candidate_id: str, resume_json: dict, profession: str) -> bool:
         """
         Insert candidate data into candidates table
@@ -152,6 +155,7 @@ class DatabaseManager:
             self.conn.rollback()
             return False
     
+    @track_performance('cv_embedding_db_insert')
     def insert_embedding(
         self, 
         candidate_id: str, 
@@ -212,11 +216,12 @@ class DatabaseManager:
             Candidate data dictionary or None
         """
         try:
-            self.cursor.execute(
-                "SELECT * FROM candidates WHERE candidate_id = %s",
-                (candidate_id,)
-            )
-            result = self.cursor.fetchone()
+            with track_query('get_candidate'):
+                self.cursor.execute(
+                    "SELECT * FROM candidates WHERE candidate_id = %s",
+                    (candidate_id,)
+                )
+                result = self.cursor.fetchone()
             
             if result:
                 columns = [desc[0] for desc in self.cursor.description]
@@ -495,11 +500,12 @@ class DatabaseManager:
             Job data dictionary or None
         """
         try:
-            self.cursor.execute(
-                "SELECT * FROM jobs WHERE job_id = %s",
-                (job_id,)
-            )
-            result = self.cursor.fetchone()
+            with track_query('get_job'):
+                self.cursor.execute(
+                    "SELECT * FROM jobs WHERE job_id = %s",
+                    (job_id,)
+                )
+                result = self.cursor.fetchone()
             
             if result:
                 columns = [desc[0] for desc in self.cursor.description]
@@ -557,11 +563,12 @@ class DatabaseManager:
             Embedding vector as list of floats, or None if not found
         """
         try:
-            self.cursor.execute(
-                "SELECT embedding FROM candidate_embeddings WHERE candidate_id = %s",
-                (candidate_id,)
-            )
-            result = self.cursor.fetchone()
+            with track_query('get_candidate_embedding'):
+                self.cursor.execute(
+                    "SELECT embedding FROM candidate_embeddings WHERE candidate_id = %s",
+                    (candidate_id,)
+                )
+                result = self.cursor.fetchone()
             
             if result and result[0]:
                 # Convert PostgreSQL vector to list of floats
@@ -583,11 +590,12 @@ class DatabaseManager:
             Embedding vector as list of floats, or None if not found
         """
         try:
-            self.cursor.execute(
-                "SELECT embedding FROM job_embeddings WHERE job_id = %s",
-                (job_id,)
-            )
-            result = self.cursor.fetchone()
+            with track_query('get_job_embedding'):
+                self.cursor.execute(
+                    "SELECT embedding FROM job_embeddings WHERE job_id = %s",
+                    (job_id,)
+                )
+                result = self.cursor.fetchone()
             
             if result and result[0]:
                 # Convert PostgreSQL vector to list of floats
@@ -687,10 +695,12 @@ class DatabaseManager:
                     AND ce.embedding IS NOT NULL
             """
             
-            self.cursor.execute(query, (candidate_id,))
-            results = self.cursor.fetchall()
-            columns = [desc[0] for desc in self.cursor.description]
+            # Track query performance - THIS IS CRITICAL FOR TASK 4
+            with track_query('vector_similarity_search'):
+                self.cursor.execute(query, (candidate_id,))
+                results = self.cursor.fetchall()
             
+            columns = [desc[0] for desc in self.cursor.description]
             jobs_with_similarity = [dict(zip(columns, row)) for row in results]
             
             logger.info(
@@ -1063,6 +1073,223 @@ class DatabaseManager:
             logger.debug(f"Failed to insert system metric: {e}")
             self.conn.rollback()
             return False
+    
+    def insert_processing_session(self, session) -> bool:
+        """
+        Insert processing session into database
+        
+        Args:
+            session: ProcessingSession object
+            
+        Returns:
+            True if successful
+        """
+        try:
+            insert_query = """
+                INSERT INTO processing_sessions (
+                    session_id, session_type, start_time, end_time, duration_seconds,
+                    items_processed, items_success, items_failed, items_skipped,
+                    total_cvs_in_db, total_jobs_in_db, metadata, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            self.cursor.execute(insert_query, (
+                session.session_id,
+                session.session_type,
+                session.start_time,
+                session.end_time,
+                session.duration_seconds,
+                session.items_processed,
+                session.items_success,
+                session.items_failed,
+                session.items_skipped,
+                session.total_cvs_in_db,
+                session.total_jobs_in_db,
+                Json(session.metadata),
+                datetime.now()
+            ))
+            
+            self.conn.commit()
+            return True
+            
+        except Exception as e:
+            logger.debug(f"Failed to insert processing session: {e}")
+            self.conn.rollback()
+            return False
+    
+    def load_performance_metrics(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Load performance metrics from database
+        
+        Args:
+            limit: Maximum number of metrics to load (None = all)
+            
+        Returns:
+            List of performance metrics as dictionaries
+        """
+        try:
+            query = """
+                SELECT operation_type, entity_id, duration_seconds, success,
+                       error_message, metadata, dataset_size_cvs, dataset_size_jobs, timestamp
+                FROM performance_metrics
+                ORDER BY timestamp DESC
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            self.cursor.execute(query)
+            rows = self.cursor.fetchall()
+            
+            metrics = []
+            for row in rows:
+                metrics.append({
+                    'operation_type': row[0],
+                    'entity_id': row[1],
+                    'duration_seconds': row[2],
+                    'success': row[3],
+                    'error_message': row[4],
+                    'metadata': row[5] or {},
+                    'dataset_size_cvs': row[6],
+                    'dataset_size_jobs': row[7],
+                    'timestamp': row[8].isoformat() if row[8] else None
+                })
+            
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"Failed to load performance metrics: {e}")
+            return []
+    
+    def load_processing_sessions(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Load processing sessions from database
+        
+        Args:
+            limit: Maximum number of sessions to load (None = all)
+            
+        Returns:
+            List of processing sessions as dictionaries
+        """
+        try:
+            query = """
+                SELECT session_id, session_type, start_time, end_time, duration_seconds,
+                       items_processed, items_success, items_failed, items_skipped,
+                       total_cvs_in_db, total_jobs_in_db, metadata
+                FROM processing_sessions
+                ORDER BY start_time DESC
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            self.cursor.execute(query)
+            rows = self.cursor.fetchall()
+            
+            sessions = []
+            for row in rows:
+                sessions.append({
+                    'session_id': row[0],
+                    'session_type': row[1],
+                    'start_time': row[2].isoformat() if row[2] else None,
+                    'end_time': row[3].isoformat() if row[3] else None,
+                    'duration_seconds': row[4],
+                    'items_processed': row[5],
+                    'items_success': row[6],
+                    'items_failed': row[7],
+                    'items_skipped': row[8],
+                    'total_cvs_in_db': row[9],
+                    'total_jobs_in_db': row[10],
+                    'metadata': row[11] or {}
+                })
+            
+            return sessions
+            
+        except Exception as e:
+            logger.error(f"Failed to load processing sessions: {e}")
+            return []
+    
+    def load_query_metrics(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Load query performance metrics from database
+        
+        Args:
+            limit: Maximum number of metrics to load (None = all)
+            
+        Returns:
+            List of query metrics as dictionaries
+        """
+        try:
+            query = """
+                SELECT query_type, duration_ms, rows_affected, index_used, timestamp
+                FROM query_performance
+                ORDER BY timestamp DESC
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            self.cursor.execute(query)
+            rows = self.cursor.fetchall()
+            
+            metrics = []
+            for row in rows:
+                metrics.append({
+                    'query_type': row[0],
+                    'duration_ms': row[1],
+                    'rows_affected': row[2],
+                    'index_used': row[3],
+                    'timestamp': row[4].isoformat() if row[4] else None
+                })
+            
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"Failed to load query metrics: {e}")
+            return []
+    
+    def load_system_metrics(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Load system resource metrics from database
+        
+        Args:
+            limit: Maximum number of metrics to load (None = all)
+            
+        Returns:
+            List of system metrics as dictionaries
+        """
+        try:
+            query = """
+                SELECT cpu_percent, memory_mb, disk_io_mb, active_workers,
+                       throughput_per_min, dataset_size_cvs, dataset_size_jobs, timestamp
+                FROM system_metrics
+                ORDER BY timestamp DESC
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            self.cursor.execute(query)
+            rows = self.cursor.fetchall()
+            
+            metrics = []
+            for row in rows:
+                metrics.append({
+                    'cpu_percent': row[0],
+                    'memory_mb': row[1],
+                    'disk_io_mb': row[2],
+                    'active_workers': row[3],
+                    'throughput_per_min': row[4],
+                    'dataset_size_cvs': row[5],
+                    'dataset_size_jobs': row[6],
+                    'timestamp': row[7].isoformat() if row[7] else None
+                })
+            
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"Failed to load system metrics: {e}")
+            return []
     
     def __enter__(self):
         """Context manager entry"""

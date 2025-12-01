@@ -24,7 +24,6 @@ class PerformanceMetric:
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     
-    # Dataset size context for extrapolation
     dataset_size_cvs: Optional[int] = None
     dataset_size_jobs: Optional[int] = None
     
@@ -41,6 +40,32 @@ class QueryMetric:
     rows_affected: int
     index_used: bool
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
+
+
+@dataclass
+class ProcessingSession:
+    """Tracks metrics for a single processing run/session"""
+    session_id: str
+    session_type: str  # 'cv_processing', 'job_processing', 'recommendation_generation'
+    start_time: str
+    end_time: Optional[str] = None
+    duration_seconds: Optional[float] = None
+    
+    # What was processed in THIS run
+    items_processed: int = 0
+    items_success: int = 0
+    items_failed: int = 0
+    items_skipped: int = 0
+    
+    # Context: what exists in DB
+    total_cvs_in_db: Optional[int] = None
+    total_jobs_in_db: Optional[int] = None
+    
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -80,6 +105,7 @@ class MetricsBuffer:
         self.performance_metrics: List[PerformanceMetric] = []
         self.query_metrics: List[QueryMetric] = []
         self.system_metrics: List[SystemMetric] = []
+        self.processing_sessions: List[ProcessingSession] = []
         self._lock = False
     
     def add_performance_metric(self, metric: PerformanceMetric):
@@ -98,6 +124,10 @@ class MetricsBuffer:
         """Add system metric to buffer"""
         self.system_metrics.append(metric)
     
+    def add_session(self, session: ProcessingSession):
+        """Add processing session to buffer"""
+        self.processing_sessions.append(session)
+    
     def get_all_performance_metrics(self) -> List[PerformanceMetric]:
         """Get all performance metrics"""
         return self.performance_metrics.copy()
@@ -110,11 +140,16 @@ class MetricsBuffer:
         """Get all system metrics"""
         return self.system_metrics.copy()
     
+    def get_all_sessions(self) -> List[ProcessingSession]:
+        """Get all processing sessions"""
+        return self.processing_sessions.copy()
+    
     def clear(self):
         """Clear all buffers"""
         self.performance_metrics.clear()
         self.query_metrics.clear()
         self.system_metrics.clear()
+        self.processing_sessions.clear()
     
     def export_to_json(self, output_path: Path) -> bool:
         """
@@ -131,10 +166,12 @@ class MetricsBuffer:
             
             data = {
                 'export_timestamp': datetime.now().isoformat(),
+                'processing_sessions': [s.to_dict() for s in self.processing_sessions],
                 'performance_metrics': [m.to_dict() for m in self.performance_metrics],
                 'query_metrics': [m.to_dict() for m in self.query_metrics],
                 'system_metrics': [m.to_dict() for m in self.system_metrics],
                 'summary': {
+                    'total_sessions': len(self.processing_sessions),
                     'total_performance_metrics': len(self.performance_metrics),
                     'total_query_metrics': len(self.query_metrics),
                     'total_system_metrics': len(self.system_metrics)

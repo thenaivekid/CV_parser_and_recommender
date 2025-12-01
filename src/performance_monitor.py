@@ -14,6 +14,7 @@ from src.metrics_collector import (
     PerformanceMetric,
     QueryMetric,
     SystemMetric,
+    ProcessingSession,
     get_global_buffer
 )
 
@@ -36,21 +37,114 @@ class PerformanceMonitor:
             'num_cvs': None,
             'num_jobs': None
         }
+        self._current_session: Optional[ProcessingSession] = None
+        self._session_start_time: Optional[float] = None
     
     def set_dataset_context(self, num_cvs: Optional[int] = None, num_jobs: Optional[int] = None):
         """
-        Set dataset size context for metrics
+        Set dataset size context for metrics (total in DB, not what's being processed)
         
         Args:
-            num_cvs: Number of CVs being processed
-            num_jobs: Number of jobs in system
+            num_cvs: Total number of CVs in database
+            num_jobs: Total number of jobs in database
         """
         if num_cvs is not None:
             self._dataset_context['num_cvs'] = num_cvs
         if num_jobs is not None:
             self._dataset_context['num_jobs'] = num_jobs
         
-        logger.info(f"Dataset context: {self._dataset_context['num_cvs']} CVs, {self._dataset_context['num_jobs']} jobs")
+        logger.debug(f"Dataset context (DB totals): {self._dataset_context['num_cvs']} CVs, {self._dataset_context['num_jobs']} jobs")
+    
+    def start_session(self, session_type: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Start a new processing session to track run-level metrics
+        
+        Args:
+            session_type: Type of session ('cv_processing', 'job_processing', 'recommendation_generation')
+            metadata: Optional metadata about the session
+            
+        Returns:
+            session_id: Unique session identifier
+        """
+        from datetime import datetime
+        
+        session_id = f"{session_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self._session_start_time = time.time()
+        
+        self._current_session = ProcessingSession(
+            session_id=session_id,
+            session_type=session_type,
+            start_time=datetime.now().isoformat(),
+            total_cvs_in_db=self._dataset_context.get('num_cvs'),
+            total_jobs_in_db=self._dataset_context.get('num_jobs'),
+            metadata=metadata or {}
+        )
+        
+        logger.info(f"Started session: {session_id}")
+        return session_id
+    
+    def end_session(self, items_processed: int = 0, items_success: int = 0, 
+                   items_failed: int = 0, items_skipped: int = 0) -> Optional[ProcessingSession]:
+        """
+        End the current processing session and record final metrics
+        
+        Args:
+            items_processed: Total items attempted in this session
+            items_success: Items successfully processed
+            items_failed: Items that failed
+            items_skipped: Items skipped (e.g., already exist)
+            
+        Returns:
+            ProcessingSession object with complete metrics, or None if no session active
+        """
+        if self._current_session is None:
+            logger.warning("No active session to end")
+            return None
+        
+        from datetime import datetime
+        
+        self._current_session.end_time = datetime.now().isoformat()
+        if self._session_start_time:
+            self._current_session.duration_seconds = time.time() - self._session_start_time
+        
+        self._current_session.items_processed = items_processed
+        self._current_session.items_success = items_success
+        self._current_session.items_failed = items_failed
+        self._current_session.items_skipped = items_skipped
+        
+        # Update DB context with current state
+        if self.db_manager:
+            try:
+                self._current_session.total_cvs_in_db = self.db_manager.get_candidate_count()
+                self._current_session.total_jobs_in_db = self.db_manager.get_job_count()
+            except Exception as e:
+                logger.debug(f"Could not update DB counts: {e}")
+        
+        # Log session summary
+        logger.info("="*60)
+        logger.info(f"Session completed: {self._current_session.session_id}")
+        logger.info(f"Duration: {self._current_session.duration_seconds:.2f}s")
+        logger.info(f"Items processed: {items_processed} (success: {items_success}, failed: {items_failed}, skipped: {items_skipped})")
+        if self._current_session.duration_seconds and items_success > 0:
+            throughput = items_success / (self._current_session.duration_seconds / 60)
+            logger.info(f"Throughput: {throughput:.2f} items/minute")
+        logger.info("="*60)
+        
+        # Store session in buffer
+        self.buffer.add_session(self._current_session)
+        
+        # Persist to database if available
+        if self.db_manager and hasattr(self.db_manager, 'insert_processing_session'):
+            try:
+                self.db_manager.insert_processing_session(self._current_session)
+            except Exception as e:
+                logger.debug(f"Failed to persist session to DB: {e}")
+        
+        session = self._current_session
+        self._current_session = None
+        self._session_start_time = None
+        
+        return session
     
     def record_performance(
         self,
@@ -116,6 +210,13 @@ class PerformanceMonitor:
         )
         
         self.buffer.add_query_metric(metric)
+        
+        # Persist to database immediately
+        if self.db_manager and hasattr(self.db_manager, 'insert_query_metric'):
+            try:
+                self.db_manager.insert_query_metric(metric)
+            except Exception as e:
+                logger.debug(f"Failed to persist query metric to DB: {e}")
     
     def record_system_snapshot(
         self,
@@ -143,6 +244,13 @@ class PerformanceMonitor:
             )
             
             self.buffer.add_system_metric(metric)
+            
+            # Persist to database immediately
+            if self.db_manager and hasattr(self.db_manager, 'insert_system_metric'):
+                try:
+                    self.db_manager.insert_system_metric(metric)
+                except Exception as e:
+                    logger.debug(f"Failed to persist system metric to DB: {e}")
             
         except Exception as e:
             logger.debug(f"Failed to record system snapshot: {e}")

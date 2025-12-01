@@ -266,16 +266,6 @@ Examples:
         monitor = PerformanceMonitor(db_manager)
         set_monitor(monitor)
         
-        # Set dataset context
-        num_cvs = db_manager.get_candidate_count()
-        num_jobs = db_manager.get_job_count()
-        monitor.set_dataset_context(num_cvs=num_cvs, num_jobs=num_jobs)
-        
-        logger.info("✓ All components initialized\n")
-        
-        # Create processor
-        processor = JobProcessor(embedding_gen, db_manager)
-        
         # Determine jobs path
         jobs_path = args.jobs_path or config.job_base_path
         
@@ -283,9 +273,29 @@ Examples:
             logger.error(f"Jobs path does not exist: {jobs_path}")
             return 1
         
+        # Start processing session to track THIS run's metrics
+        session_metadata = {
+            'force': args.force,
+            'jobs_path': str(jobs_path)
+        }
+        monitor.start_session('job_processing', metadata=session_metadata)
+        
+        logger.info("✓ All components initialized\n")
+        
+        # Create processor
+        processor = JobProcessor(embedding_gen, db_manager)
+        
         # Process jobs
         skip_existing = not args.force
         processor.process_all_jobs(jobs_path, skip_existing)
+        
+        # End processing session with actual stats from this run
+        monitor.end_session(
+            items_processed=processor.stats['total'],
+            items_success=processor.stats['success'],
+            items_failed=processor.stats['failed'],
+            items_skipped=processor.stats['skipped']
+        )
         
         # Cleanup
         db_manager.close()

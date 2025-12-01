@@ -176,7 +176,7 @@ class CVParser:
                 )
             elif self.provider == "gemini":
                 return ChatGoogleGenerativeAI(
-                    model="gemini-3-pro-preview",
+                    model="gemini-2.5-pro",
                     google_api_key=os.getenv("GOOGLE_API_KEY"),
                     temperature=0
                 )

@@ -122,9 +122,14 @@ Examples:
         monitor = PerformanceMonitor(db_manager)
         set_monitor(monitor)
         
-        # Set dataset context (will be updated during processing)
-        num_jobs = db_manager.get_job_count()
-        monitor.set_dataset_context(num_jobs=num_jobs)
+        # Start processing session to track THIS run's metrics
+        session_metadata = {
+            'parallel': not args.no_parallel,
+            'workers': args.workers or config.num_workers if not args.no_parallel else 1,
+            'force': args.force,
+            'profession': args.profession
+        }
+        monitor.start_session('cv_processing', metadata=session_metadata)
         
         logger.info("✓ All components initialized\n")
         
@@ -148,15 +153,26 @@ Examples:
             # Process single profession
             count = args.count or config.num_cv_per_profession
             if args.no_parallel:
-                processor.process_profession(args.profession, count, skip_existing)
+                stats = processor.process_profession(args.profession, count, skip_existing)
             else:
-                processor.process_profession_parallel(args.profession, count, skip_existing)
+                stats = processor.process_profession_parallel(args.profession, count, skip_existing)
         else:
             # Process all professions
             if args.no_parallel:
-                processor.process_all_professions(skip_existing)
+                stats = processor.process_all_professions(skip_existing)
             else:
-                processor.process_all_professions_parallel(skip_existing)
+                stats = processor.process_all_professions_parallel(skip_existing)
+        
+        # End processing session with actual stats from this run
+        if not stats:
+            stats = {'total': 0, 'success': 0, 'failed': 0, 'skipped': 0}
+        
+        monitor.end_session(
+            items_processed=stats['total'],
+            items_success=stats['success'],
+            items_failed=stats['failed'],
+            items_skipped=stats['skipped']
+        )
         
         # Cleanup
         db_manager.close()
@@ -164,15 +180,15 @@ Examples:
         logger.info("\n✅ Processing completed successfully!")
         
         # Generate performance dashboard
-        logger.info("\n📊 Generating performance dashboard...")
-        try:
-            output_dir = Path("data/performance_reports")
-            dashboard_gen = DashboardGenerator()
-            report = dashboard_gen.generate_report(output_dir)
-            logger.info(f"✓ Performance dashboard saved to {output_dir}")
-            logger.info(f"  View: {output_dir}/performance_dashboard_*.html")
-        except Exception as e:
-            logger.warning(f"Could not generate dashboard: {e}")
+        # logger.info("\n📊 Generating performance dashboard...")
+        # try:
+        #     output_dir = Path("data/performance_reports")
+        #     dashboard_gen = DashboardGenerator()
+        #     report = dashboard_gen.generate_report(output_dir)
+        #     logger.info(f"✓ Performance dashboard saved to {output_dir}")
+        #     logger.info(f"  View: {output_dir}/performance_dashboard_*.html")
+        # except Exception as e:
+        #     logger.warning(f"Could not generate dashboard: {e}")
         
         return 0
         

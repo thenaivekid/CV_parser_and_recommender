@@ -162,8 +162,6 @@ def generate_all_recommendations(
     Returns:
         Statistics dictionary
     """
-    start_time = time.time()
-    
     logger.info("=" * 80)
     logger.info("Starting PARALLEL OPTIMIZED recommendation generation")
     logger.info(f"Using {max_workers} parallel workers")
@@ -186,6 +184,18 @@ def generate_all_recommendations(
     if job_count == 0:
         logger.error("No jobs found in database")
         return {'error': 'No jobs found'}
+    
+    # Start session to track THIS run (total CV×Job pairs to process)
+    monitor = get_monitor()
+    total_pairs = len(candidate_ids) * job_count
+    session_metadata = {
+        'max_workers': max_workers,
+        'top_k': top_k,
+        'total_candidates': len(candidate_ids),
+        'total_jobs': job_count,
+        'total_pairs': total_pairs
+    }
+    monitor.start_session('recommendation_generation', metadata=session_metadata)
     
     # Initialize statistics
     stats = {
@@ -224,9 +234,10 @@ def generate_all_recommendations(
         }
         
         # Collect results as they complete
-        for future in as_completed(future_to_candidate):
+        for idx, future in enumerate(as_completed(future_to_candidate), 1):
             candidate_id = future_to_candidate[future]
             try:
+                start_time = time.time()
                 result = future.result()
                 
                 stats['processed_candidates'] += 1
@@ -241,8 +252,16 @@ def generate_all_recommendations(
                         f"Failed to process {candidate_id}: {result.get('error', 'Unknown error')}"
                     )
                 
-                # Progress indicator
+                # Progress indicator and system snapshot every 10 candidates
                 if stats['processed_candidates'] % 10 == 0:
+                    # Record system snapshot
+                    monitor = get_monitor()
+                    monitor.record_system_snapshot(
+                        active_workers=max_workers,
+                        throughput_per_min=(stats['processed_candidates'] / 
+                                           (time.time() - start_time)) * 60
+                    )
+                    
                     logger.info(
                         f"Progress: {stats['processed_candidates']}/{len(candidate_ids)} "
                         f"({stats['processed_candidates']/len(candidate_ids)*100:.1f}%) "
@@ -254,8 +273,13 @@ def generate_all_recommendations(
                 stats['failed_candidates'] += 1
                 logger.error(f"Exception processing {candidate_id}: {e}")
     
-    elapsed_time = time.time() - start_time
-    stats['elapsed_time_seconds'] = round(elapsed_time, 2)
+    # End session with actual processed counts
+    monitor.end_session(
+        items_processed=stats['total_recommendations'],  # Total CV×Job pairs evaluated
+        items_success=stats['saved_to_db'],              # Successfully saved
+        items_failed=stats['failed_candidates'] * job_count,  # Failed pairs
+        items_skipped=0
+    )
     
     logger.info("=" * 80)
     logger.info("PARALLEL RECOMMENDATION GENERATION COMPLETE")
@@ -268,9 +292,6 @@ def generate_all_recommendations(
     logger.info(f"Total recommendations generated: {stats['total_recommendations']}")
     logger.info(f"Saved to database: {stats['saved_to_db']}")
     logger.info(f"Parallel workers: {max_workers}")
-    logger.info(f"Total time: {stats['elapsed_time_seconds']} seconds")
-    logger.info(f"Average time per candidate: {stats['elapsed_time_seconds']/max(stats['processed_candidates'], 1):.2f} seconds")
-    logger.info(f"Throughput: {stats['processed_candidates']/elapsed_time:.2f} candidates/second")
     logger.info("=" * 80)
     
     return stats
@@ -428,11 +449,6 @@ def main():
         monitor = PerformanceMonitor(db_manager)
         set_monitor(monitor)
         
-        # Set dataset context
-        num_cvs = db_manager.get_candidate_count()
-        num_jobs = db_manager.get_job_count()
-        monitor.set_dataset_context(num_cvs=num_cvs, num_jobs=num_jobs)
-        
     except Exception as e:
         logger.error(f"Failed to initialize components: {e}")
         sys.exit(1)
@@ -488,16 +504,16 @@ def main():
     finally:
         db_manager.close()
         
-        # Generate performance dashboard
-        logger.info("\n📊 Generating performance dashboard...")
-        try:
-            output_dir_path = Path("data/performance_reports")
-            dashboard_gen = DashboardGenerator()
-            report = dashboard_gen.generate_report(output_dir_path)
-            logger.info(f"✓ Performance dashboard saved to {output_dir_path}")
-            logger.info(f"  View: {output_dir_path}/performance_dashboard_*.html")
-        except Exception as e:
-            logger.warning(f"Could not generate dashboard: {e}")
+        # # Generate performance dashboard
+        # logger.info("\n📊 Generating performance dashboard...")
+        # try:
+        #     output_dir_path = Path("data/performance_reports")
+        #     dashboard_gen = DashboardGenerator()
+        #     report = dashboard_gen.generate_report(output_dir_path)
+        #     logger.info(f"✓ Performance dashboard saved to {output_dir_path}")
+        #     logger.info(f"  View: {output_dir_path}/performance_dashboard_*.html")
+        # except Exception as e:
+        #     logger.warning(f"Could not generate dashboard: {e}")
     
     logger.info("Done!")
 

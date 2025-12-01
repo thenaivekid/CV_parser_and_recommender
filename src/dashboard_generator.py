@@ -12,6 +12,7 @@ from src.metrics_collector import (
     MetricsBuffer,
     MetricsAggregator,
     PerformanceMetric,
+    ProcessingSession,
     get_global_buffer
 )
 
@@ -47,18 +48,18 @@ class DashboardGenerator:
         perf_metrics = self.buffer.get_all_performance_metrics()
         query_metrics = self.buffer.get_all_query_metrics()
         system_metrics = self.buffer.get_all_system_metrics()
+        sessions = self.buffer.get_all_sessions()
         
         # Calculate statistics
         stats_by_operation = self.aggregator.aggregate_by_operation(perf_metrics)
         success_rates = self.aggregator.calculate_success_rate(perf_metrics)
         
-        # Extract dataset context
-        dataset_info = self._extract_dataset_info(perf_metrics)
+        # Extract dataset context (prefer from sessions, fallback to metrics)
+        dataset_info = self._extract_dataset_info_from_sessions(sessions, perf_metrics)
         
         # Build report
         report = {
             'generated_at': datetime.now().isoformat(),
-            'dataset_info': dataset_info,
             'performance_summary': stats_by_operation,
             'success_rates': success_rates,
             'total_metrics_collected': {
@@ -67,8 +68,8 @@ class DashboardGenerator:
                 'system': len(system_metrics)
             },
             'bottleneck_analysis': self._analyze_bottlenecks(perf_metrics),
-            'extrapolations': self._calculate_extrapolations(stats_by_operation, dataset_info),
             'throughput_analysis': self._analyze_throughput(perf_metrics),
+            'query_performance': self._analyze_query_performance(query_metrics),
             'resource_efficiency': self._analyze_resources(system_metrics)
         }
         
@@ -89,6 +90,87 @@ class DashboardGenerator:
         
         return report
     
+    def _summarize_sessions(self, sessions: List[ProcessingSession]) -> List[Dict[str, Any]]:
+        """Summarize processing sessions for report"""
+        return [
+            {
+                'session_id': s.session_id,
+                'type': s.session_type,
+                'start_time': s.start_time,
+                'end_time': s.end_time,
+                'duration_seconds': s.duration_seconds,
+                'items_processed': s.items_processed,
+                'items_success': s.items_success,
+                'items_failed': s.items_failed,
+                'items_skipped': s.items_skipped,
+                'throughput_per_minute': (s.items_success / (s.duration_seconds / 60)) if s.duration_seconds and s.items_success else 0,
+                'success_rate': (s.items_success / s.items_processed * 100) if s.items_processed else 0,
+                'metadata': s.metadata
+            }
+            for s in sessions
+        ]
+    
+    def _extract_dataset_info_from_sessions(
+        self, 
+        sessions: List[ProcessingSession], 
+        metrics: List[PerformanceMetric]
+    ) -> Dict[str, Any]:
+        """Extract dataset info from sessions (preferred) or fallback to metrics"""
+        # Try to get from most recent session
+        if sessions:
+            latest_session = sessions[-1]
+            return {
+                'num_cvs_in_db': latest_session.total_cvs_in_db or 0,
+                'num_jobs_in_db': latest_session.total_jobs_in_db or 0,
+                'num_cvs_processed_this_run': latest_session.items_success if latest_session.session_type == 'cv_processing' else 0,
+                'num_jobs_processed_this_run': latest_session.items_success if latest_session.session_type == 'job_processing' else 0,
+                'source': 'session_data'
+            }
+        
+        # Fallback to metrics
+        return {
+            **self._extract_dataset_info(metrics),
+            'source': 'metric_data'
+        }
+    
+    def _analyze_throughput_from_sessions(self, sessions: List[ProcessingSession]) -> Dict[str, Any]:
+        """Analyze throughput from session data"""
+        if not sessions:
+            return {'message': 'No session data available'}
+        
+        analysis = {
+            'by_session_type': {}
+        }
+        
+        for session in sessions:
+            if session.duration_seconds and session.items_success > 0:
+                session_type = session.session_type
+                throughput = session.items_success / (session.duration_seconds / 60)
+                
+                if session_type not in analysis['by_session_type']:
+                    analysis['by_session_type'][session_type] = []
+                
+                analysis['by_session_type'][session_type].append({
+                    'session_id': session.session_id,
+                    'items_per_minute': throughput,
+                    'duration_seconds': session.duration_seconds,
+                    'items_processed': session.items_success
+                })
+        
+        # Calculate averages
+        summary = {}
+        for session_type, throughputs in list(analysis['by_session_type'].items()):
+            if throughputs and isinstance(throughputs, list):
+                avg_throughput = sum(t['items_per_minute'] for t in throughputs) / len(throughputs)
+                summary[session_type] = {
+                    'avg_per_minute': avg_throughput,
+                    'avg_per_hour': avg_throughput * 60,
+                    'num_sessions': len(throughputs)
+                }
+        
+        analysis['by_session_type'] = summary
+        return analysis
+    
     def _extract_dataset_info(self, metrics: List[PerformanceMetric]) -> Dict[str, Any]:
         """Extract dataset size information from metrics"""
         if not metrics:
@@ -105,13 +187,22 @@ class DashboardGenerator:
         return {'num_cvs': 0, 'num_jobs': 0}
     
     def _analyze_bottlenecks(self, metrics: List[PerformanceMetric]) -> Dict[str, Any]:
-        """Analyze where time is being spent"""
+        """Analyze where time is being spent - focus on CV processing and recommendations"""
         if not metrics:
             return {}
         
+        # Filter to only CV-related and recommendation operations (no job operations)
+        relevant_operations = {
+            'cv_parsing',
+            'embedding_generation',
+            'cv_db_insert',
+            'cv_embedding_db_insert',
+            'recommendation_generation'
+        }
+        
         total_time_by_operation = {}
         for metric in metrics:
-            if metric.success:
+            if metric.success and metric.operation_type in relevant_operations:
                 if metric.operation_type not in total_time_by_operation:
                     total_time_by_operation[metric.operation_type] = 0.0
                 total_time_by_operation[metric.operation_type] += metric.duration_seconds
@@ -136,87 +227,37 @@ class DashboardGenerator:
         
         return bottlenecks
     
-    def _calculate_extrapolations(
-        self,
-        stats: Dict[str, Dict[str, float]],
-        dataset_info: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Calculate extrapolated performance at different scales
+    def _analyze_query_performance(self, query_metrics: List) -> Dict[str, Any]:
+        """Analyze database query performance"""
+        if not query_metrics:
+            return {'message': 'No query metrics available'}
         
-        This is the key function for toy database -> production predictions
-        """
-        current_cvs = dataset_info.get('num_cvs', 25)
-        current_jobs = dataset_info.get('num_jobs', 5)
+        # Convert ms to seconds for consistency
+        query_times = [m.duration_ms / 1000.0 for m in query_metrics]
+        query_types = {}
         
-        extrapolations = {
-            'current_scale': {
-                'num_cvs': current_cvs,
-                'num_jobs': current_jobs
-            },
-            'projections': {}
+        for metric in query_metrics:
+            query_type = metric.query_type if hasattr(metric, 'query_type') else 'unknown'
+            if query_type not in query_types:
+                query_types[query_type] = []
+            query_types[query_type].append(metric.duration_ms / 1000.0)
+        
+        analysis = {
+            'overall': self.aggregator.calculate_stats(query_times),
+            'by_type': {}
         }
         
-        # Define target scales
-        scales = [
-            {'name': '100_cvs_10_jobs', 'cvs': 100, 'jobs': 10},
-            {'name': '1K_cvs_100_jobs', 'cvs': 1000, 'jobs': 100},
-            {'name': '10K_cvs_1K_jobs', 'cvs': 10000, 'jobs': 1000},
-            {'name': '100K_cvs_10K_jobs', 'cvs': 100000, 'jobs': 10000}
-        ]
+        for qtype, times in query_types.items():
+            analysis['by_type'][qtype] = self.aggregator.calculate_stats(times)
         
-        for scale in scales:
-            scale_factor_cvs = scale['cvs'] / max(current_cvs, 1)
-            scale_factor_jobs = scale['jobs'] / max(current_jobs, 1)
-            
-            projections = {}
-            
-            # CV-dependent operations (linear scaling)
-            cv_operations = ['cv_parsing', 'embedding_generation', 'cv_db_insert']
-            for op in cv_operations:
-                if op in stats:
-                    mean_time = stats[op]['mean']
-                    projections[op] = {
-                        'estimated_mean_seconds': mean_time,  # Per-CV time stays same
-                        'estimated_total_seconds': mean_time * scale['cvs'],
-                        'scaling': 'linear_with_cvs'
-                    }
-            
-            # Job-dependent operations (linear with jobs, per candidate)
-            if 'recommendation_generation' in stats:
-                mean_time = stats['recommendation_generation']['mean']
-                # Time per recommendation scales with number of jobs
-                projections['recommendation_generation'] = {
-                    'estimated_mean_seconds': mean_time * scale_factor_jobs,
-                    'estimated_total_seconds': mean_time * scale_factor_jobs * scale['cvs'],
-                    'scaling': 'linear_with_jobs_times_cvs'
-                }
-            
-            # Similarity search (sub-linear with pgvector IVFFLAT)
-            if 'similarity_search' in stats:
-                mean_time = stats['similarity_search']['mean']
-                # IVFFLAT is roughly O(sqrt(n)) to O(n/k)
-                # Conservative estimate: O(n^0.7)
-                search_scale = scale_factor_jobs ** 0.7
-                projections['similarity_search'] = {
-                    'estimated_mean_seconds': mean_time * search_scale,
-                    'estimated_total_seconds': mean_time * search_scale * scale['cvs'],
-                    'scaling': 'sublinear_with_jobs',
-                    'note': 'Assumes pgvector IVFFLAT index optimization'
-                }
-            
-            extrapolations['projections'][scale['name']] = {
-                'scale': scale,
-                'operations': projections
-            }
-        
-        return extrapolations
+        return analysis
     
     def _analyze_throughput(self, metrics: List[PerformanceMetric]) -> Dict[str, Any]:
-        """Analyze throughput metrics"""
+        """Analyze throughput metrics for CV-related operations only"""
         throughput = {}
         
-        for op_type in ['cv_parsing', 'recommendation_generation']:
+        # Only track CV-related operations (no job operations)
+        for op_type in ['cv_parsing', 'embedding_generation', 'cv_db_insert', 'cv_embedding_db_insert', 'recommendation_generation']:
             rate = self.aggregator.calculate_throughput(metrics, op_type)
             if rate > 0:
                 throughput[op_type] = {
@@ -389,24 +430,14 @@ class DashboardGenerator:
     </div>
     
     <div class="card">
-        <h2>📦 Dataset Context</h2>
-        <div class="info">
-            <strong>Current Scale:</strong> Processing metrics with 
-            <code>{report['dataset_info']['num_cvs']} CVs</code> and 
-            <code>{report['dataset_info']['num_jobs']} jobs</code>
-        </div>
-        <p>These metrics are collected at toy scale. Extrapolations below estimate production performance.</p>
-    </div>
-    
-    <div class="card">
-        <h2>⚡ Performance Summary</h2>
+        <h2>⚡ Performance Summary (CV Processing & Recommendations)</h2>
         <div class="metric-grid">
             {self._render_performance_metrics(report['performance_summary'])}
         </div>
     </div>
     
     <div class="card">
-        <h2>🎯 Success Rates</h2>
+        <h2>🎯 Success Rates (CV Processing & Recommendations)</h2>
         <table>
             <tr>
                 <th>Operation</th>
@@ -417,23 +448,21 @@ class DashboardGenerator:
     </div>
     
     <div class="card">
-        <h2>🔍 Bottleneck Analysis</h2>
-        <p>Time distribution across operations:</p>
+        <h2>🔍 Bottleneck Analysis (CV Processing Only)</h2>
+        <p>Time distribution across CV processing and recommendation operations:</p>
         {self._render_bottlenecks(report['bottleneck_analysis'])}
     </div>
     
     <div class="card">
-        <h2>📈 Scale Extrapolations</h2>
-        <div class="warning">
-            <strong>⚠️ Projection Notice:</strong> These are mathematical extrapolations based on current measurements.
-            Actual production performance may vary due to network latency, API rate limits, and database optimization.
-        </div>
-        {self._render_extrapolations(report['extrapolations'])}
+        <h2>🚀 System Throughput</h2>
+        <p>Processing rate for CVs and recommendations:</p>
+        {self._render_throughput(report['throughput_analysis'])}
     </div>
     
     <div class="card">
-        <h2>🚀 Throughput Analysis</h2>
-        {self._render_throughput(report['throughput_analysis'])}
+        <h2>🗄️ Database Query Performance</h2>
+        <p>Track database query execution times for retrieval optimization:</p>
+        {self._render_query_performance(report.get('query_performance', {}))}
     </div>
     
     <div class="card">
@@ -465,31 +494,89 @@ class DashboardGenerator:
         with open(output_path, 'w') as f:
             f.write(html_content)
     
-    def _render_performance_metrics(self, stats: Dict[str, Dict[str, float]]) -> str:
-        """Render performance metrics as HTML"""
-        html = ""
-        for op, metrics in stats.items():
+    def _render_sessions(self, sessions: List[Dict[str, Any]]) -> str:
+        """Render processing sessions summary"""
+        if not sessions:
+            return "<p>No processing sessions recorded.</p>"
+        
+        html = "<table><tr>"
+        html += "<th>Session ID</th><th>Type</th><th>Duration</th>"
+        html += "<th>Processed</th><th>Success</th><th>Failed</th><th>Skipped</th>"
+        html += "<th>Throughput</th><th>Success Rate</th></tr>"
+        
+        for session in sessions:
             html += f"""
-            <div class="metric-box">
-                <div class="label">{op.replace('_', ' ').title()}</div>
-                <div class="value">{metrics['mean']:.3f}<span class="unit">s</span></div>
-                <div class="unit">p95: {metrics['p95']:.3f}s | count: {metrics['count']}</div>
-            </div>
+            <tr>
+                <td><code>{session['session_id']}</code></td>
+                <td>{session['type'].replace('_', ' ').title()}</td>
+                <td>{session['duration_seconds']:.1f}s</td>
+                <td>{session['items_processed']}</td>
+                <td>{session['items_success']}</td>
+                <td>{session['items_failed']}</td>
+                <td>{session['items_skipped']}</td>
+                <td><strong>{session['throughput_per_minute']:.2f}/min</strong></td>
+                <td>{session['success_rate']:.1f}%</td>
+            </tr>
             """
+        
+        return html + "</table>"
+    
+    def _render_processing_info(self, dataset_info: Dict[str, Any]) -> str:
+        """Render information about what was processed this run"""
+        cvs_processed = dataset_info.get('num_cvs_processed_this_run', 0)
+        jobs_processed = dataset_info.get('num_jobs_processed_this_run', 0)
+        
+        if cvs_processed == 0 and jobs_processed == 0:
+            return ""
+        
+        html = "<div class='warning'>"
+        html += "<strong>This Run:</strong> "
+        if cvs_processed > 0:
+            html += f"Processed <strong>{cvs_processed}</strong> CVs"
+        if jobs_processed > 0:
+            if cvs_processed > 0:
+                html += " and "
+            html += f"processed <strong>{jobs_processed}</strong> jobs"
+        html += "</div>"
+        return html
+    
+    def _render_performance_metrics(self, stats: Dict[str, Dict[str, float]]) -> str:
+        """Render performance metrics as HTML - only CV processing and recommendations"""
+        html = ""
+        
+        # Filter to relevant operations (CV-related only, no job operations)
+        relevant_ops = ['cv_parsing', 'embedding_generation', 'cv_db_insert', 'cv_embedding_db_insert', 'recommendation_generation']
+        
+        for op in relevant_ops:
+            if op in stats:
+                metrics = stats[op]
+                html += f"""
+                <div class="metric-box">
+                    <div class="label">{op.replace('_', ' ').title()}</div>
+                    <div class="value">{metrics['mean']:.3f}<span class="unit">s</span></div>
+                    <div class="unit">p95: {metrics['p95']:.3f}s | count: {metrics['count']}</div>
+                </div>
+                """
         return html
     
     def _render_success_rates(self, rates: Dict[str, float]) -> str:
-        """Render success rates as HTML table rows"""
+        """Render success rates as HTML table rows - only CV processing and recommendations"""
         html = ""
-        for op, rate in rates.items():
-            percentage = rate * 100
-            color = "#28a745" if rate >= 0.95 else ("#ffc107" if rate >= 0.8 else "#dc3545")
-            html += f"""
-            <tr>
-                <td>{op.replace('_', ' ').title()}</td>
-                <td><strong style="color: {color}">{percentage:.1f}%</strong></td>
-            </tr>
-            """
+        
+        # Filter to relevant operations (CV-related only, no job operations)
+        relevant_ops = ['cv_parsing', 'embedding_generation', 'cv_db_insert', 'cv_embedding_db_insert', 'recommendation_generation']
+        
+        for op in relevant_ops:
+            if op in rates:
+                rate = rates[op]
+                percentage = rate * 100
+                color = "#28a745" if rate >= 0.95 else ("#ffc107" if rate >= 0.8 else "#dc3545")
+                html += f"""
+                <tr>
+                    <td>{op.replace('_', ' ').title()}</td>
+                    <td><strong style="color: {color}">{percentage:.1f}%</strong></td>
+                </tr>
+                """
         return html
     
     def _render_bottlenecks(self, bottlenecks: Dict[str, Any]) -> str:
@@ -511,31 +598,50 @@ class DashboardGenerator:
             """
         return html
     
-    def _render_extrapolations(self, extrapolations: Dict[str, Any]) -> str:
-        """Render scale extrapolations"""
-        html = ""
-        for scale_name, data in extrapolations.get('projections', {}).items():
-            scale = data['scale']
-            html += f"""
-            <h3>Scale: {scale['cvs']} CVs × {scale['jobs']} Jobs</h3>
-            <table>
-                <tr>
-                    <th>Operation</th>
-                    <th>Est. Mean Time</th>
-                    <th>Est. Total Time</th>
-                    <th>Scaling Model</th>
-                </tr>
+    def _render_query_performance(self, query_perf: Dict[str, Any]) -> str:
+        """Render database query performance"""
+        if not query_perf or not query_perf.get('overall') or query_perf['overall']['count'] == 0:
+            return """
+            <div class="warning">
+                <strong>⚠️ No Query Metrics Collected</strong>
+                <p>Database query performance tracking is not yet instrumented.</p>
+                <p><strong>To enable:</strong> Add query tracking to <code>database_manager.py</code> methods</p>
+                <p>Key methods to instrument:</p>
+                <ul>
+                    <li><code>search_similar_candidates()</code> - Vector similarity search (CRITICAL for Task 4)</li>
+                    <li><code>get_candidate()</code>, <code>get_job()</code> - Data retrieval</li>
+                    <li><code>get_candidate_embedding()</code> - Embedding retrieval</li>
+                </ul>
+            </div>
             """
-            for op, proj in data['operations'].items():
+        
+        html = "<div class='metric-grid'>"
+        
+        if 'overall' in query_perf:
+            stats = query_perf['overall']
+            html += f"""
+            <div class="metric-box">
+                <div class="label">Average Query Time</div>
+                <div class="value">{stats['mean']*1000:.1f}<span class="unit">ms</span></div>
+                <div class="unit">P95: {stats['p95']*1000:.1f}ms</div>
+            </div>
+            """
+        
+        html += "</div>"
+        
+        if 'by_type' in query_perf and query_perf['by_type']:
+            html += "<h3>By Query Type</h3><table><tr><th>Query Type</th><th>Avg Time</th><th>P95</th><th>Count</th></tr>"
+            for qtype, stats in query_perf['by_type'].items():
                 html += f"""
                 <tr>
-                    <td>{op.replace('_', ' ').title()}</td>
-                    <td>{proj['estimated_mean_seconds']:.3f}s</td>
-                    <td>{proj['estimated_total_seconds'] / 60:.1f} min</td>
-                    <td><code>{proj['scaling']}</code></td>
+                    <td>{qtype.replace('_', ' ').title()}</td>
+                    <td>{stats['mean']*1000:.1f}ms</td>
+                    <td>{stats['p95']*1000:.1f}ms</td>
+                    <td>{stats['count']}</td>
                 </tr>
                 """
             html += "</table>"
+        
         return html
     
     def _render_throughput(self, throughput: Dict[str, Any]) -> str:
@@ -544,21 +650,36 @@ class DashboardGenerator:
             return "<p>No throughput data available.</p>"
         
         html = "<div class='metric-grid'>"
-        for op, data in throughput.items():
-            html += f"""
-            <div class="metric-box">
-                <div class="label">{op.replace('_', ' ').title()}</div>
-                <div class="value">{data['operations_per_minute']:.2f}<span class="unit">/min</span></div>
-                <div class="unit">{data['operations_per_hour']:.0f}/hour</div>
-            </div>
-            """
+        
+        for op_type, data in throughput.items():
+            if isinstance(data, dict) and 'operations_per_minute' in data:
+                html += f"""
+                <div class="metric-box">
+                    <div class="label">{op_type.replace('_', ' ').title()}</div>
+                    <div class="value">{data['operations_per_minute']:.2f}<span class="unit">/min</span></div>
+                    <div class="unit">{data['operations_per_hour']:.0f}/hour</div>
+                </div>
+                """
+        
         html += "</div>"
         return html
     
     def _render_resources(self, resources: Dict[str, Any]) -> str:
         """Render resource efficiency"""
-        if not resources:
-            return "<p>No resource data available.</p>"
+        if not resources or ('cpu' not in resources and 'memory' not in resources):
+            return """
+            <div class="warning">
+                <strong>⚠️ No System Resource Metrics Collected</strong>
+                <p>System resource monitoring (CPU/Memory) is not yet instrumented.</p>
+                <p><strong>To enable:</strong> Add <code>monitor.record_system_snapshot()</code> calls to processing scripts</p>
+                <p>Add to:</p>
+                <ul>
+                    <li><code>src/process_cvs.py</code> - Call every 10 CVs processed</li>
+                    <li><code>src/process_jobs.py</code> - Call every 5 jobs processed</li>
+                    <li><code>src/generate_recommendations.py</code> - Call during batch processing</li>
+                </ul>
+            </div>
+            """
         
         html = "<div class='metric-grid'>"
         if 'cpu' in resources:

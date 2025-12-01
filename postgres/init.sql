@@ -145,9 +145,29 @@ CREATE TABLE IF NOT EXISTS system_metrics (
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Processing sessions table - tracks each processing run
+CREATE TABLE IF NOT EXISTS processing_sessions (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(255) UNIQUE NOT NULL,
+    session_type VARCHAR(50) NOT NULL,  -- 'cv_processing', 'job_processing', 'recommendation_generation'
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    duration_seconds FLOAT,
+    items_processed INTEGER DEFAULT 0,
+    items_success INTEGER DEFAULT 0,
+    items_failed INTEGER DEFAULT 0,
+    items_skipped INTEGER DEFAULT 0,
+    total_cvs_in_db INTEGER,
+    total_jobs_in_db INTEGER,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indices for performance queries
 CREATE INDEX IF NOT EXISTS idx_perf_operation_type ON performance_metrics(operation_type);
 CREATE INDEX IF NOT EXISTS idx_perf_timestamp ON performance_metrics(timestamp);
 CREATE INDEX IF NOT EXISTS idx_query_type ON query_performance(query_type);
 CREATE INDEX IF NOT EXISTS idx_query_timestamp ON query_performance(timestamp);
 CREATE INDEX IF NOT EXISTS idx_system_timestamp ON system_metrics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_session_type ON processing_sessions(session_type);
+CREATE INDEX IF NOT EXISTS idx_session_timestamp ON processing_sessions(start_time);
