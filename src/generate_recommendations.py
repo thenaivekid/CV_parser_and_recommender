@@ -33,7 +33,8 @@ def process_candidate_worker(
     stage1_threshold: float,
     top_k: Optional[int],
     save_to_db: bool,
-    output_dir: Optional[str]
+    output_dir: Optional[str],
+    skip_existing: bool = True
 ) -> Dict[str, Any]:
     """
     Worker function to process a single candidate in parallel.
@@ -42,6 +43,8 @@ def process_candidate_worker(
     Supports TWO-STAGE RETRIEVAL:
     - Stage 1: Fast vector similarity filtering (top-K jobs)
     - Stage 2: Full scoring (skills, experience, education) on filtered jobs only
+    
+    Can SKIP existing recommendations to avoid redundant computation.
     
     Args:
         candidate_id: Candidate identifier
@@ -53,6 +56,7 @@ def process_candidate_worker(
         top_k: Number of top recommendations to save
         save_to_db: Whether to save to database
         output_dir: Output directory for JSON files
+        skip_existing: Skip jobs that already have recommendations (default: True)
         
     Returns:
         Result dictionary with statistics
@@ -63,7 +67,9 @@ def process_candidate_worker(
         'recommendations_count': 0,
         'saved_to_db': 0,
         'jobs_evaluated': 0,
+        'jobs_skipped': 0,
         'retrieval_mode': 'two-stage' if use_two_stage else 'single-stage',
+        'skip_existing': skip_existing,
         'error': None
     }
     
@@ -86,29 +92,56 @@ def process_candidate_worker(
         
         candidate_name = candidate.get('name', 'Unknown')
         
-        # CHOOSE RETRIEVAL STRATEGY
-        if use_two_stage:
-            # TWO-STAGE: Stage 1 - Get only top-K most similar jobs (FAST)
-            jobs_with_similarity = db_manager.get_top_k_jobs_by_similarity(
+        # CHOOSE RETRIEVAL STRATEGY WITH SKIP LOGIC
+        if skip_existing:
+            # OPTIMIZED: Get only jobs WITHOUT existing recommendations
+            jobs_with_similarity = db_manager.get_jobs_without_recommendations(
                 candidate_id=candidate_id,
-                top_k=stage1_top_k,
-                similarity_threshold=stage1_threshold
+                use_two_stage=use_two_stage,
+                stage1_top_k=stage1_top_k,
+                stage1_threshold=stage1_threshold
             )
-            result['jobs_evaluated'] = len(jobs_with_similarity)
-            logger.debug(
-                f"Two-stage: Candidate {candidate_id} - "
-                f"Stage 1 filtered to {len(jobs_with_similarity)} jobs"
-            )
+            # Calculate skipped count
+            if use_two_stage:
+                total_retrieved = min(stage1_top_k, db_manager.get_job_count())
+            else:
+                total_retrieved = db_manager.get_job_count()
+            result['jobs_skipped'] = total_retrieved - len(jobs_with_similarity)
         else:
-            # SINGLE-STAGE: Get ALL jobs with similarity (SLOWER for large datasets)
-            jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
-                candidate_id
-            )
-            result['jobs_evaluated'] = len(jobs_with_similarity)
+            # STANDARD: Get all jobs (will overwrite existing)
+            if use_two_stage:
+                # TWO-STAGE: Stage 1 - Get only top-K most similar jobs (FAST)
+                jobs_with_similarity = db_manager.get_top_k_jobs_by_similarity(
+                    candidate_id=candidate_id,
+                    top_k=stage1_top_k,
+                    similarity_threshold=stage1_threshold
+                )
+            else:
+                # SINGLE-STAGE: Get ALL jobs with similarity (SLOWER for large datasets)
+                jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
+                    candidate_id
+                )
+            result['jobs_skipped'] = 0
+        
+        result['jobs_evaluated'] = len(jobs_with_similarity)
         
         if not jobs_with_similarity:
-            result['error'] = 'No jobs with embeddings found'
+            if skip_existing and result['jobs_skipped'] > 0:
+                # All jobs already have recommendations
+                result['success'] = True
+                result['error'] = None
+                logger.info(
+                    f"✓ [SKIP] {candidate_id} ({candidate_name}): "
+                    f"All {result['jobs_skipped']} jobs already have recommendations"
+                )
+            else:
+                result['error'] = 'No jobs with embeddings found'
             return result
+        
+        logger.debug(
+            f"Candidate {candidate_id} - Processing {len(jobs_with_similarity)} jobs, "
+            f"Skipped {result['jobs_skipped']} existing recommendations"
+        )
         
         # Stage 2: Full scoring (skills, experience, education) on filtered jobs
         recommendations = engine.rank_jobs_for_candidate(
@@ -150,10 +183,18 @@ def process_candidate_worker(
                 json.dump(recommendations, f, indent=2)
         
         result['success'] = True
-        logger.info(
-            f"✓ [{result['retrieval_mode']}] Processed {candidate_id} ({candidate_name}): "
-            f"{result['recommendations_count']} recommendations from {result['jobs_evaluated']} jobs evaluated"
-        )
+        
+        if result['jobs_skipped'] > 0:
+            logger.info(
+                f"✓ [{result['retrieval_mode']}] Processed {candidate_id} ({candidate_name}): "
+                f"{result['recommendations_count']} new recommendations, "
+                f"{result['jobs_skipped']} skipped (already exist)"
+            )
+        else:
+            logger.info(
+                f"✓ [{result['retrieval_mode']}] Processed {candidate_id} ({candidate_name}): "
+                f"{result['recommendations_count']} recommendations from {result['jobs_evaluated']} jobs evaluated"
+            )
         
     except Exception as e:
         result['error'] = str(e)
@@ -175,7 +216,8 @@ def generate_all_recommendations(
     max_workers: int = 10,
     use_two_stage: bool = True,
     stage1_top_k: int = 50,
-    stage1_threshold: float = 0.3
+    stage1_threshold: float = 0.3,
+    skip_existing: bool = True
 ) -> dict:
     """
     Generate recommendations for all candidates using OPTIMIZED PARALLEL approach:
@@ -185,6 +227,7 @@ def generate_all_recommendations(
     - Use PostgreSQL pgvector for similarity computation (fast)
     - Batch save to database (efficient)
     - TWO-STAGE RETRIEVAL: Stage 1 filters, Stage 2 full scoring
+    - SKIP EXISTING: Avoid recalculating existing recommendations
     
     Args:
         db_manager: Database manager instance (only for initial queries)
@@ -196,6 +239,7 @@ def generate_all_recommendations(
         use_two_stage: Enable two-stage retrieval (default: True)
         stage1_top_k: Number of jobs to filter in Stage 1 (default: 50)
         stage1_threshold: Minimum similarity for Stage 1 (default: 0.3)
+        skip_existing: Skip jobs with existing recommendations (default: True)
         
     Returns:
         Statistics dictionary
@@ -206,6 +250,7 @@ def generate_all_recommendations(
     if use_two_stage:
         logger.info(f"Stage 1: Filter top-{stage1_top_k} jobs (threshold >= {stage1_threshold})")
         logger.info(f"Stage 2: Full scoring on filtered jobs only")
+    logger.info(f"Skip existing: {'YES - Only compute new recommendations' if skip_existing else 'NO - Recalculate all'}")
     logger.info("Using PostgreSQL pgvector for similarity computation")
     logger.info("=" * 80)
     
@@ -238,6 +283,7 @@ def generate_all_recommendations(
         'use_two_stage': use_two_stage,
         'stage1_top_k': stage1_top_k,
         'stage1_threshold': stage1_threshold,
+        'skip_existing': skip_existing,
         'estimated_pairs_evaluated': total_pairs
     }
     monitor.start_session('recommendation_generation', metadata=session_metadata)
@@ -251,9 +297,11 @@ def generate_all_recommendations(
         'failed_candidates': 0,
         'total_recommendations': 0,
         'total_jobs_evaluated': 0,
+        'total_jobs_skipped': 0,
         'saved_to_db': 0,
         'max_workers': max_workers,
         'use_two_stage': use_two_stage,
+        'skip_existing': skip_existing,
         'stage1_top_k': stage1_top_k if use_two_stage else 'N/A',
         'elapsed_time_seconds': 0
     }
@@ -279,7 +327,8 @@ def generate_all_recommendations(
                 stage1_threshold,
                 top_k,
                 save_to_db,
-                output_dir
+                output_dir,
+                skip_existing
             ): candidate_id
             for candidate_id in candidate_ids
         }
@@ -297,6 +346,7 @@ def generate_all_recommendations(
                     stats['successful_candidates'] += 1
                     stats['total_recommendations'] += result['recommendations_count']
                     stats['total_jobs_evaluated'] += result.get('jobs_evaluated', 0)
+                    stats['total_jobs_skipped'] += result.get('jobs_skipped', 0)
                     stats['saved_to_db'] += result['saved_to_db']
                 else:
                     stats['failed_candidates'] += 1
@@ -314,13 +364,15 @@ def generate_all_recommendations(
                         throughput_per_min=(stats['processed_candidates'] / elapsed) * 60
                     )
                     
-                    avg_jobs = stats['total_jobs_evaluated'] / stats['processed_candidates']
+                    avg_jobs = stats['total_jobs_evaluated'] / max(stats['processed_candidates'], 1)
+                    avg_skipped = stats['total_jobs_skipped'] / max(stats['processed_candidates'], 1)
                     logger.info(
                         f"Progress: {stats['processed_candidates']}/{len(candidate_ids)} "
                         f"({stats['processed_candidates']/len(candidate_ids)*100:.1f}%) "
                         f"- Success: {stats['successful_candidates']}, "
                         f"Failed: {stats['failed_candidates']}, "
-                        f"Avg jobs/candidate: {avg_jobs:.1f}"
+                        f"Avg jobs/candidate: {avg_jobs:.1f}, "
+                        f"Avg skipped/candidate: {avg_skipped:.1f}"
                     )
                 
             except Exception as e:
@@ -334,7 +386,7 @@ def generate_all_recommendations(
         items_processed=stats['total_jobs_evaluated'],  # Total CV×Job pairs actually evaluated
         items_success=stats['saved_to_db'],             # Successfully saved
         items_failed=stats['failed_candidates'] * (stage1_top_k if use_two_stage else job_count),
-        items_skipped=0
+        items_skipped=stats['total_jobs_skipped']       # Skipped existing recommendations
     )
     
     logger.info("=" * 80)
@@ -346,6 +398,12 @@ def generate_all_recommendations(
     if use_two_stage:
         logger.info(f"  Stage 1 filter: top-{stage1_top_k} jobs per candidate")
         logger.info(f"  Avg jobs evaluated: {stats['total_jobs_evaluated']/max(stats['successful_candidates'], 1):.1f}")
+    logger.info(f"Skip existing: {skip_existing}")
+    if skip_existing:
+        logger.info(f"  Total skipped (existing): {stats['total_jobs_skipped']}")
+        logger.info(f"  Avg skipped per candidate: {stats['total_jobs_skipped']/max(stats['successful_candidates'], 1):.1f}")
+        efficiency_pct = (stats['total_jobs_skipped'] / max(stats['total_jobs_evaluated'] + stats['total_jobs_skipped'], 1)) * 100
+        logger.info(f"  Computation saved: {efficiency_pct:.1f}%")
     logger.info(f"Processed candidates: {stats['processed_candidates']}")
     logger.info(f"  ✓ Successful: {stats['successful_candidates']}")
     logger.info(f"  ✗ Failed: {stats['failed_candidates']}")
@@ -507,6 +565,11 @@ def main():
         default=0.3,
         help='Stage 1: Minimum similarity threshold 0.0-1.0 (default: 0.3). Only used in two-stage mode.'
     )
+    parser.add_argument(
+        '--force-recalculate',
+        action='store_true',
+        help='Force recalculation of existing recommendations (default: skip existing)'
+    )
     
     args = parser.parse_args()
 
@@ -524,6 +587,7 @@ def main():
     use_two_stage = not args.single_stage
     stage1_top_k = args.stage1_k
     stage1_threshold = args.stage1_threshold
+    skip_existing = not args.force_recalculate
     
     # Initialize components
     try:
@@ -581,7 +645,8 @@ def main():
                 max_workers=args.workers,
                 use_two_stage=use_two_stage,
                 stage1_top_k=stage1_top_k,
-                stage1_threshold=stage1_threshold
+                stage1_threshold=stage1_threshold,
+                skip_existing=skip_existing
             )
             
             if 'error' in stats:

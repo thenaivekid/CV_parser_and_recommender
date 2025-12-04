@@ -802,6 +802,98 @@ class DatabaseManager:
     
     # ========== RECOMMENDATION METHODS ==========
     
+    def check_recommendation_exists(self, candidate_id: str, job_id: str) -> bool:
+        """
+        Check if recommendation already exists for a candidate-job pair
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            job_id: Unique job identifier
+            
+        Returns:
+            True if recommendation exists, False otherwise
+        """
+        try:
+            self.cursor.execute(
+                "SELECT COUNT(*) FROM recommendations WHERE candidate_id = %s AND job_id = %s",
+                (candidate_id, job_id)
+            )
+            count = self.cursor.fetchone()[0]
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking recommendation existence: {e}")
+            return False
+    
+    def get_existing_recommendation_job_ids(self, candidate_id: str) -> set:
+        """
+        Get set of job IDs that already have recommendations for a candidate
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            
+        Returns:
+            Set of job IDs with existing recommendations
+        """
+        try:
+            with track_query('get_existing_recommendations'):
+                self.cursor.execute(
+                    "SELECT job_id FROM recommendations WHERE candidate_id = %s",
+                    (candidate_id,)
+                )
+                results = self.cursor.fetchall()
+            
+            return {row[0] for row in results}
+        except Exception as e:
+            logger.error(f"Error getting existing recommendations: {e}")
+            return set()
+    
+    def get_jobs_without_recommendations(
+        self,
+        candidate_id: str,
+        use_two_stage: bool = True,
+        stage1_top_k: int = 50,
+        stage1_threshold: float = 0.3
+    ) -> List[Dict[str, Any]]:
+        """
+        Get jobs that DON'T have recommendations yet for a candidate.
+        Combines vector similarity filtering with existence check.
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            use_two_stage: Use two-stage filtering
+            stage1_top_k: Top-K for Stage 1 filtering
+            stage1_threshold: Similarity threshold
+            
+        Returns:
+            List of job dictionaries without existing recommendations
+        """
+        try:
+            # Get jobs with similarity (using chosen strategy)
+            if use_two_stage:
+                all_jobs = self.get_top_k_jobs_by_similarity(
+                    candidate_id, stage1_top_k, stage1_threshold
+                )
+            else:
+                all_jobs = self.get_all_jobs_with_similarity_for_candidate(candidate_id)
+            
+            # Get existing recommendation job IDs
+            existing_job_ids = self.get_existing_recommendation_job_ids(candidate_id)
+            
+            # Filter out jobs that already have recommendations
+            new_jobs = [job for job in all_jobs if job['job_id'] not in existing_job_ids]
+            
+            logger.info(
+                f"Candidate {candidate_id}: {len(all_jobs)} jobs retrieved, "
+                f"{len(existing_job_ids)} already have recommendations, "
+                f"{len(new_jobs)} new jobs to process"
+            )
+            
+            return new_jobs
+            
+        except Exception as e:
+            logger.error(f"Error getting jobs without recommendations: {e}")
+            return []
+    
     def save_recommendation(
         self,
         candidate_id: str,
