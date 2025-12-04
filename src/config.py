@@ -81,6 +81,19 @@ class Config:
     def chunk_size(self) -> int:
         """Chunk size for batch processing"""
         return self._config.get('batch_processing', {}).get('chunk_size', 5)
+    
+    @property
+    def redis(self) -> Dict[str, Any]:
+        """Redis cache configuration"""
+        redis_config = self._config.get('redis', {})
+        return {
+            'enabled': redis_config.get('enabled', False),
+            'host': redis_config.get('host', 'localhost'),
+            'port': redis_config.get('port', 6379),
+            'db': redis_config.get('db', 0),
+            'cache_ttl': redis_config.get('cache_ttl', 3600),
+            'use_for_similarity': redis_config.get('use_for_similarity', True)
+        }
 
 
 # Global config instance

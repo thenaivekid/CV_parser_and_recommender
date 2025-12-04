@@ -50,3 +50,30 @@ python src/cv_parser.py /workspaces/CV_parser_and_recommender/resume-dataset/dat
 
 <!-- test perf monitoring -->
 python tests/test_performance_monitoring.py
+
+<!-- install redis and test -->
+./scripts/install_redis.sh
+sudo service redis-server start && sleep 2 && redis-cli ping
+python -c 'import redis; r = redis.Redis(); print("Connected!" if r.ping() else "Failed")'
+
+PYTHONPATH=/workspaces/CV_parser_and_recommender python test_backward_compatibility_without_redis.py #set configs to not use the redis cache
+
+PYTHONPATH=/workspaces/CV_parser_and_recommender python src/generate_recommendations.py --workers 2 --top-k 5 --no-save-db --force-recalculate #set the configs to use redis
+
+PYTHONPATH=/workspaces/CV_parser_and_recommender python test_redis_recommendations.py
+
+<!-- next prompt -->
+batch Recommendation Generation with Connection Pooling ⭐
+Current: Each worker creates own DB connection (overhead)
+
+Enhancement:
+
+Connection pool (psycopg2.pool.ThreadedConnectionPool)
+Batch candidate fetching (fetch 100 candidates at once)
+Vectorized similarity computation for candidate batches
+Benefits:
+
+Reduces connection overhead by 80%
+Enables true batch processing
+Better resource utilization
+

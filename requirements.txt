@@ -19,6 +19,9 @@ psycopg2-binary
 sqlalchemy
 alembic
 
+# Caching & Performance
+redis
+
 # PDF processing
 pypdf
 pdf2image

@@ -571,8 +571,12 @@ class DatabaseManager:
                 result = self.cursor.fetchone()
             
             if result and result[0]:
-                # Convert PostgreSQL vector to list of floats
-                return result[0]
+                # PostgreSQL vector type is returned as string, need to parse
+                embedding = result[0]
+                if isinstance(embedding, str):
+                    import ast
+                    embedding = ast.literal_eval(embedding)
+                return embedding
             return None
             
         except Exception as e:

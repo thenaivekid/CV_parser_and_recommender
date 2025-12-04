@@ -34,7 +34,8 @@ def process_candidate_worker(
     top_k: Optional[int],
     save_to_db: bool,
     output_dir: Optional[str],
-    skip_existing: bool = True
+    skip_existing: bool = True,
+    redis_config: Optional[dict] = None
 ) -> Dict[str, Any]:
     """
     Worker function to process a single candidate in parallel.
@@ -43,6 +44,10 @@ def process_candidate_worker(
     Supports TWO-STAGE RETRIEVAL:
     - Stage 1: Fast vector similarity filtering (top-K jobs)
     - Stage 2: Full scoring (skills, experience, education) on filtered jobs only
+    
+    Supports REDIS CACHING for production API use:
+    - When redis_config provided: Use Redis-cached embeddings + NumPy similarity
+    - When redis_config is None: Fall back to pgvector similarity (backward compatible)
     
     Can SKIP existing recommendations to avoid redundant computation.
     
@@ -57,6 +62,7 @@ def process_candidate_worker(
         save_to_db: Whether to save to database
         output_dir: Output directory for JSON files
         skip_existing: Skip jobs that already have recommendations (default: True)
+        redis_config: Redis configuration dict (if None, use pgvector only)
         
     Returns:
         Result dictionary with statistics
@@ -68,20 +74,28 @@ def process_candidate_worker(
         'saved_to_db': 0,
         'jobs_evaluated': 0,
         'jobs_skipped': 0,
-        'retrieval_mode': 'two-stage' if use_two_stage else 'single-stage',
+        'retrieval_mode': 'redis-cached' if redis_config else ('two-stage' if use_two_stage else 'single-stage'),
         'skip_existing': skip_existing,
         'error': None
     }
     
     # Each worker creates its own DB connection (thread-safe)
     db_manager = None
+    cache_manager = None
     try:
         db_manager = DatabaseManager(db_config)
+        
+        # Initialize cache manager if Redis is enabled
+        if redis_config:
+            from src.cache_manager import CachedRecommendationEngine
+            cache_manager = CachedRecommendationEngine(db_manager, redis_config)
+        
         engine = RecommendationEngine(
             weights=engine_weights,
             use_two_stage=use_two_stage,
             stage1_top_k=stage1_top_k,
-            stage1_threshold=stage1_threshold
+            stage1_threshold=stage1_threshold,
+            cache_manager=cache_manager
         )
         
         # Get candidate data
@@ -92,36 +106,52 @@ def process_candidate_worker(
         
         candidate_name = candidate.get('name', 'Unknown')
         
-        # CHOOSE RETRIEVAL STRATEGY WITH SKIP LOGIC
-        if skip_existing:
-            # OPTIMIZED: Get only jobs WITHOUT existing recommendations
-            jobs_with_similarity = db_manager.get_jobs_without_recommendations(
-                candidate_id=candidate_id,
-                use_two_stage=use_two_stage,
-                stage1_top_k=stage1_top_k,
-                stage1_threshold=stage1_threshold
+        # CHOOSE RETRIEVAL STRATEGY: Redis-cached OR pgvector
+        if cache_manager and redis_config.get('use_for_similarity', False):
+            # REDIS PATH: Get CV embedding, use cached job embeddings + NumPy similarity
+            cv_embedding = db_manager.get_candidate_embedding(candidate_id)
+            if cv_embedding is None:
+                result['error'] = 'Candidate embedding not found'
+                return result
+            
+            # Use cache manager for similarity computation
+            jobs_with_similarity = cache_manager.get_similar_jobs(
+                cv_embedding=cv_embedding,
+                top_k=stage1_top_k,
+                similarity_threshold=stage1_threshold
             )
-            # Calculate skipped count
-            if use_two_stage:
-                total_retrieved = min(stage1_top_k, db_manager.get_job_count())
-            else:
-                total_retrieved = db_manager.get_job_count()
-            result['jobs_skipped'] = total_retrieved - len(jobs_with_similarity)
+            result['jobs_skipped'] = 0  # Redis doesn't support skip_existing yet
         else:
-            # STANDARD: Get all jobs (will overwrite existing)
-            if use_two_stage:
-                # TWO-STAGE: Stage 1 - Get only top-K most similar jobs (FAST)
-                jobs_with_similarity = db_manager.get_top_k_jobs_by_similarity(
+            # PGVECTOR PATH: Traditional database similarity (backward compatible)
+            if skip_existing:
+                # OPTIMIZED: Get only jobs WITHOUT existing recommendations
+                jobs_with_similarity = db_manager.get_jobs_without_recommendations(
                     candidate_id=candidate_id,
-                    top_k=stage1_top_k,
-                    similarity_threshold=stage1_threshold
+                    use_two_stage=use_two_stage,
+                    stage1_top_k=stage1_top_k,
+                    stage1_threshold=stage1_threshold
                 )
+                # Calculate skipped count
+                if use_two_stage:
+                    total_retrieved = min(stage1_top_k, db_manager.get_job_count())
+                else:
+                    total_retrieved = db_manager.get_job_count()
+                result['jobs_skipped'] = total_retrieved - len(jobs_with_similarity)
             else:
-                # SINGLE-STAGE: Get ALL jobs with similarity (SLOWER for large datasets)
-                jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
-                    candidate_id
-                )
-            result['jobs_skipped'] = 0
+                # STANDARD: Get all jobs (will overwrite existing)
+                if use_two_stage:
+                    # TWO-STAGE: Stage 1 - Get only top-K most similar jobs (FAST)
+                    jobs_with_similarity = db_manager.get_top_k_jobs_by_similarity(
+                        candidate_id=candidate_id,
+                        top_k=stage1_top_k,
+                        similarity_threshold=stage1_threshold
+                    )
+                else:
+                    # SINGLE-STAGE: Get ALL jobs with similarity (SLOWER for large datasets)
+                    jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
+                        candidate_id
+                    )
+                result['jobs_skipped'] = 0
         
         result['jobs_evaluated'] = len(jobs_with_similarity)
         
@@ -217,14 +247,15 @@ def generate_all_recommendations(
     use_two_stage: bool = True,
     stage1_top_k: int = 50,
     stage1_threshold: float = 0.3,
-    skip_existing: bool = True
+    skip_existing: bool = True,
+    redis_config: Optional[dict] = None
 ) -> dict:
     """
     Generate recommendations for all candidates using OPTIMIZED PARALLEL approach:
     - Batch read candidate IDs from database
     - Process multiple candidates in parallel using ThreadPoolExecutor
     - Each worker has its own database connection (thread-safe)
-    - Use PostgreSQL pgvector for similarity computation (fast)
+    - Use PostgreSQL pgvector OR Redis-cached embeddings for similarity computation
     - Batch save to database (efficient)
     - TWO-STAGE RETRIEVAL: Stage 1 filters, Stage 2 full scoring
     - SKIP EXISTING: Avoid recalculating existing recommendations
@@ -240,18 +271,23 @@ def generate_all_recommendations(
         stage1_top_k: Number of jobs to filter in Stage 1 (default: 50)
         stage1_threshold: Minimum similarity for Stage 1 (default: 0.3)
         skip_existing: Skip jobs with existing recommendations (default: True)
+        redis_config: Redis configuration dict (if None, use pgvector only)
         
     Returns:
         Statistics dictionary
     """
     logger.info("=" * 80)
-    logger.info(f"Starting PARALLEL {'TWO-STAGE' if use_two_stage else 'SINGLE-STAGE'} recommendation generation")
+    if redis_config and redis_config.get('use_for_similarity', False):
+        logger.info("Starting PARALLEL REDIS-CACHED recommendation generation")
+        logger.info(f"Using Redis for similarity computation (NumPy + cached embeddings)")
+    else:
+        logger.info(f"Starting PARALLEL {'TWO-STAGE' if use_two_stage else 'SINGLE-STAGE'} recommendation generation")
+        if use_two_stage:
+            logger.info(f"Stage 1: Filter top-{stage1_top_k} jobs (threshold >= {stage1_threshold})")
+            logger.info(f"Stage 2: Full scoring on filtered jobs only")
+        logger.info("Using PostgreSQL pgvector for similarity computation")
     logger.info(f"Using {max_workers} parallel workers")
-    if use_two_stage:
-        logger.info(f"Stage 1: Filter top-{stage1_top_k} jobs (threshold >= {stage1_threshold})")
-        logger.info(f"Stage 2: Full scoring on filtered jobs only")
     logger.info(f"Skip existing: {'YES - Only compute new recommendations' if skip_existing else 'NO - Recalculate all'}")
-    logger.info("Using PostgreSQL pgvector for similarity computation")
     logger.info("=" * 80)
     
     # Get candidate IDs only (memory efficient - no full data)
@@ -328,7 +364,8 @@ def generate_all_recommendations(
                 top_k,
                 save_to_db,
                 output_dir,
-                skip_existing
+                skip_existing,
+                redis_config
             ): candidate_id
             for candidate_id in candidate_ids
         }
@@ -592,11 +629,30 @@ def main():
     # Initialize components
     try:
         db_manager = DatabaseManager(config.database)
+        
+        # Initialize Redis cache manager if enabled
+        cache_manager = None
+        redis_config = None
+        if hasattr(config, 'redis') and config.redis.get('enabled', False):
+            logger.info("Redis caching enabled")
+            try:
+                from src.cache_manager import CachedRecommendationEngine
+                redis_config = config.redis
+                cache_manager = CachedRecommendationEngine(db_manager, redis_config)
+                logger.info(f"✓ Connected to Redis at {redis_config['host']}:{redis_config['port']}")
+            except Exception as e:
+                logger.warning(f"Failed to connect to Redis: {e}. Falling back to pgvector.")
+                redis_config = None
+                cache_manager = None
+        else:
+            logger.info("Redis caching disabled (using pgvector only)")
+        
         engine = RecommendationEngine(
             weights=weights,
             use_two_stage=use_two_stage,
             stage1_top_k=stage1_top_k,
-            stage1_threshold=stage1_threshold
+            stage1_threshold=stage1_threshold,
+            cache_manager=cache_manager
         )
         
         # Initialize performance monitor
@@ -646,7 +702,8 @@ def main():
                 use_two_stage=use_two_stage,
                 stage1_top_k=stage1_top_k,
                 stage1_threshold=stage1_threshold,
-                skip_existing=skip_existing
+                skip_existing=skip_existing,
+                redis_config=redis_config
             )
             
             if 'error' in stats:

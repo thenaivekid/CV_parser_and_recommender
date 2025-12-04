@@ -21,7 +21,7 @@ class RecommendationEngine:
     - Education match (degree and field)
     - Semantic similarity (vector embeddings)
     
-    Supports TWO-STAGE RETRIEVAL for efficient large-scale recommendations.
+    Supports TWO-STAGE RETRIEVAL and REDIS CACHING for efficient large-scale recommendations.
     """
     
     def __init__(
@@ -29,7 +29,8 @@ class RecommendationEngine:
         weights: Optional[Dict[str, float]] = None,
         use_two_stage: bool = True,
         stage1_top_k: int = 50,
-        stage1_threshold: float = 0.3
+        stage1_threshold: float = 0.3,
+        cache_manager = None
     ):
         """
         Initialize recommendation engine with configurable weights
@@ -40,6 +41,7 @@ class RecommendationEngine:
             use_two_stage: Enable two-stage retrieval (Stage 1: vector filtering, Stage 2: full scoring)
             stage1_top_k: Number of candidates to retrieve in Stage 1 (default: 50)
             stage1_threshold: Minimum similarity threshold for Stage 1 (default: 0.3)
+            cache_manager: Optional CachedRecommendationEngine for Redis-based similarity
         """
         self.weights = weights or {
             'skills': 0.35,
@@ -57,9 +59,13 @@ class RecommendationEngine:
         self.stage1_top_k = stage1_top_k
         self.stage1_threshold = stage1_threshold
         
+        # Redis cache manager (optional)
+        self.cache_manager = cache_manager
+        
         logger.info(
             f"Recommendation engine initialized with weights: {self.weights}, "
-            f"two-stage: {use_two_stage}, stage1_k: {stage1_top_k}, threshold: {stage1_threshold}"
+            f"two-stage: {use_two_stage}, stage1_k: {stage1_top_k}, threshold: {stage1_threshold}, "
+            f"cache: {'enabled' if cache_manager else 'disabled'}"
         )
     
     def calculate_skills_match(
