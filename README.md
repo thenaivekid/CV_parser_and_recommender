@@ -35,3 +35,13 @@ https://www.kaggle.com/datasets/snehaanbhawal/resume-dataset/code?datasetId=1519
 - System throughput (CVs processed per minute)
 - Database query performance
 
+
+Strengths:
+
+✅ pgvector with IVFFLAT indexing - Already optimized for vector similarity search
+✅ Batch processing - save_recommendations_batch() using execute_values
+✅ Database-side similarity computation - Using 1 - (je.embedding <=> ce.embedding)
+✅ Parallel processing - ThreadPoolExecutor with 10 workers in generate_recommendations.py
+✅ Performance monitoring - Comprehensive tracking in performance_monitor.py
+✅ Vector embeddings - Using sentence-transformers/all-mpnet-base-v2 (768-dim)
+

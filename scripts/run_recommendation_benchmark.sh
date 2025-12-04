@@ -1,0 +1,1 @@
+PYTHONPATH=/workspaces/CV_parser_and_recommender:$PYTHONPATH python src/benchmark_retrieval.py --sample-size 5

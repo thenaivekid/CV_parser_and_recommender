@@ -20,15 +20,26 @@ class RecommendationEngine:
     - Experience match (years and relevance)
     - Education match (degree and field)
     - Semantic similarity (vector embeddings)
+    
+    Supports TWO-STAGE RETRIEVAL for efficient large-scale recommendations.
     """
     
-    def __init__(self, weights: Optional[Dict[str, float]] = None):
+    def __init__(
+        self, 
+        weights: Optional[Dict[str, float]] = None,
+        use_two_stage: bool = True,
+        stage1_top_k: int = 50,
+        stage1_threshold: float = 0.3
+    ):
         """
         Initialize recommendation engine with configurable weights
         
         Args:
             weights: Dictionary of weights for different matching factors
                      Default: {'skills': 0.35, 'experience': 0.25, 'education': 0.15, 'semantic': 0.25}
+            use_two_stage: Enable two-stage retrieval (Stage 1: vector filtering, Stage 2: full scoring)
+            stage1_top_k: Number of candidates to retrieve in Stage 1 (default: 50)
+            stage1_threshold: Minimum similarity threshold for Stage 1 (default: 0.3)
         """
         self.weights = weights or {
             'skills': 0.35,
@@ -41,7 +52,15 @@ class RecommendationEngine:
         total = sum(self.weights.values())
         self.weights = {k: v/total for k, v in self.weights.items()}
         
-        logger.info(f"Recommendation engine initialized with weights: {self.weights}")
+        # Two-stage retrieval configuration
+        self.use_two_stage = use_two_stage
+        self.stage1_top_k = stage1_top_k
+        self.stage1_threshold = stage1_threshold
+        
+        logger.info(
+            f"Recommendation engine initialized with weights: {self.weights}, "
+            f"two-stage: {use_two_stage}, stage1_k: {stage1_top_k}, threshold: {stage1_threshold}"
+        )
     
     def calculate_skills_match(
         self, 

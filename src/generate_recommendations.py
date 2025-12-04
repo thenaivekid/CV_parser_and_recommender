@@ -28,6 +28,9 @@ def process_candidate_worker(
     candidate_id: str,
     db_config: dict,
     engine_weights: Optional[Dict[str, float]],
+    use_two_stage: bool,
+    stage1_top_k: int,
+    stage1_threshold: float,
     top_k: Optional[int],
     save_to_db: bool,
     output_dir: Optional[str]
@@ -36,11 +39,18 @@ def process_candidate_worker(
     Worker function to process a single candidate in parallel.
     Each worker gets its own database connection (thread-safe).
     
+    Supports TWO-STAGE RETRIEVAL:
+    - Stage 1: Fast vector similarity filtering (top-K jobs)
+    - Stage 2: Full scoring (skills, experience, education) on filtered jobs only
+    
     Args:
         candidate_id: Candidate identifier
         db_config: Database configuration for creating connection
         engine_weights: Recommendation engine weights
-        top_k: Number of top recommendations
+        use_two_stage: Enable two-stage retrieval optimization
+        stage1_top_k: Number of jobs to retrieve in Stage 1
+        stage1_threshold: Minimum similarity threshold for Stage 1
+        top_k: Number of top recommendations to save
         save_to_db: Whether to save to database
         output_dir: Output directory for JSON files
         
@@ -52,6 +62,8 @@ def process_candidate_worker(
         'success': False,
         'recommendations_count': 0,
         'saved_to_db': 0,
+        'jobs_evaluated': 0,
+        'retrieval_mode': 'two-stage' if use_two_stage else 'single-stage',
         'error': None
     }
     
@@ -59,7 +71,12 @@ def process_candidate_worker(
     db_manager = None
     try:
         db_manager = DatabaseManager(db_config)
-        engine = RecommendationEngine(weights=engine_weights)
+        engine = RecommendationEngine(
+            weights=engine_weights,
+            use_two_stage=use_two_stage,
+            stage1_top_k=stage1_top_k,
+            stage1_threshold=stage1_threshold
+        )
         
         # Get candidate data
         candidate = db_manager.get_candidate(candidate_id)
@@ -69,17 +86,31 @@ def process_candidate_worker(
         
         candidate_name = candidate.get('name', 'Unknown')
         
-        # Get ALL jobs with pre-computed similarity from PostgreSQL
-        # Uses pgvector's optimized C code and IVFFLAT index
-        jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
-            candidate_id
-        )
+        # CHOOSE RETRIEVAL STRATEGY
+        if use_two_stage:
+            # TWO-STAGE: Stage 1 - Get only top-K most similar jobs (FAST)
+            jobs_with_similarity = db_manager.get_top_k_jobs_by_similarity(
+                candidate_id=candidate_id,
+                top_k=stage1_top_k,
+                similarity_threshold=stage1_threshold
+            )
+            result['jobs_evaluated'] = len(jobs_with_similarity)
+            logger.debug(
+                f"Two-stage: Candidate {candidate_id} - "
+                f"Stage 1 filtered to {len(jobs_with_similarity)} jobs"
+            )
+        else:
+            # SINGLE-STAGE: Get ALL jobs with similarity (SLOWER for large datasets)
+            jobs_with_similarity = db_manager.get_all_jobs_with_similarity_for_candidate(
+                candidate_id
+            )
+            result['jobs_evaluated'] = len(jobs_with_similarity)
         
         if not jobs_with_similarity:
             result['error'] = 'No jobs with embeddings found'
             return result
         
-        # Generate recommendations (Python does skills/exp/edu scoring only)
+        # Stage 2: Full scoring (skills, experience, education) on filtered jobs
         recommendations = engine.rank_jobs_for_candidate(
             candidate=candidate,
             jobs_with_similarity=jobs_with_similarity,
@@ -120,8 +151,8 @@ def process_candidate_worker(
         
         result['success'] = True
         logger.info(
-            f"✓ Processed {candidate_id} ({candidate_name}): "
-            f"{result['recommendations_count']} recommendations"
+            f"✓ [{result['retrieval_mode']}] Processed {candidate_id} ({candidate_name}): "
+            f"{result['recommendations_count']} recommendations from {result['jobs_evaluated']} jobs evaluated"
         )
         
     except Exception as e:
@@ -141,7 +172,10 @@ def generate_all_recommendations(
     top_k: Optional[int] = None,
     save_to_db: bool = True,
     output_dir: Optional[str] = None,
-    max_workers: int = 10
+    max_workers: int = 10,
+    use_two_stage: bool = True,
+    stage1_top_k: int = 50,
+    stage1_threshold: float = 0.3
 ) -> dict:
     """
     Generate recommendations for all candidates using OPTIMIZED PARALLEL approach:
@@ -150,6 +184,7 @@ def generate_all_recommendations(
     - Each worker has its own database connection (thread-safe)
     - Use PostgreSQL pgvector for similarity computation (fast)
     - Batch save to database (efficient)
+    - TWO-STAGE RETRIEVAL: Stage 1 filters, Stage 2 full scoring
     
     Args:
         db_manager: Database manager instance (only for initial queries)
@@ -158,13 +193,19 @@ def generate_all_recommendations(
         save_to_db: Whether to save recommendations to database
         output_dir: Directory to save JSON output files (optional)
         max_workers: Number of parallel worker threads (default: 10)
+        use_two_stage: Enable two-stage retrieval (default: True)
+        stage1_top_k: Number of jobs to filter in Stage 1 (default: 50)
+        stage1_threshold: Minimum similarity for Stage 1 (default: 0.3)
         
     Returns:
         Statistics dictionary
     """
     logger.info("=" * 80)
-    logger.info("Starting PARALLEL OPTIMIZED recommendation generation")
+    logger.info(f"Starting PARALLEL {'TWO-STAGE' if use_two_stage else 'SINGLE-STAGE'} recommendation generation")
     logger.info(f"Using {max_workers} parallel workers")
+    if use_two_stage:
+        logger.info(f"Stage 1: Filter top-{stage1_top_k} jobs (threshold >= {stage1_threshold})")
+        logger.info(f"Stage 2: Full scoring on filtered jobs only")
     logger.info("Using PostgreSQL pgvector for similarity computation")
     logger.info("=" * 80)
     
@@ -185,15 +226,19 @@ def generate_all_recommendations(
         logger.error("No jobs found in database")
         return {'error': 'No jobs found'}
     
-    # Start session to track THIS run (total CV×Job pairs to process)
+    # Start session to track THIS run
     monitor = get_monitor()
-    total_pairs = len(candidate_ids) * job_count
+    jobs_per_candidate = stage1_top_k if use_two_stage else job_count
+    total_pairs = len(candidate_ids) * jobs_per_candidate
     session_metadata = {
         'max_workers': max_workers,
         'top_k': top_k,
         'total_candidates': len(candidate_ids),
         'total_jobs': job_count,
-        'total_pairs': total_pairs
+        'use_two_stage': use_two_stage,
+        'stage1_top_k': stage1_top_k,
+        'stage1_threshold': stage1_threshold,
+        'estimated_pairs_evaluated': total_pairs
     }
     monitor.start_session('recommendation_generation', metadata=session_metadata)
     
@@ -205,8 +250,11 @@ def generate_all_recommendations(
         'successful_candidates': 0,
         'failed_candidates': 0,
         'total_recommendations': 0,
+        'total_jobs_evaluated': 0,
         'saved_to_db': 0,
         'max_workers': max_workers,
+        'use_two_stage': use_two_stage,
+        'stage1_top_k': stage1_top_k if use_two_stage else 'N/A',
         'elapsed_time_seconds': 0
     }
     
@@ -226,6 +274,9 @@ def generate_all_recommendations(
                 candidate_id,
                 db_config,
                 engine_weights,
+                use_two_stage,
+                stage1_top_k,
+                stage1_threshold,
                 top_k,
                 save_to_db,
                 output_dir
@@ -234,10 +285,10 @@ def generate_all_recommendations(
         }
         
         # Collect results as they complete
+        start_time = time.time()
         for idx, future in enumerate(as_completed(future_to_candidate), 1):
             candidate_id = future_to_candidate[future]
             try:
-                start_time = time.time()
                 result = future.result()
                 
                 stats['processed_candidates'] += 1
@@ -245,6 +296,7 @@ def generate_all_recommendations(
                 if result['success']:
                     stats['successful_candidates'] += 1
                     stats['total_recommendations'] += result['recommendations_count']
+                    stats['total_jobs_evaluated'] += result.get('jobs_evaluated', 0)
                     stats['saved_to_db'] += result['saved_to_db']
                 else:
                     stats['failed_candidates'] += 1
@@ -254,30 +306,34 @@ def generate_all_recommendations(
                 
                 # Progress indicator and system snapshot every 10 candidates
                 if stats['processed_candidates'] % 10 == 0:
+                    elapsed = time.time() - start_time
                     # Record system snapshot
                     monitor = get_monitor()
                     monitor.record_system_snapshot(
                         active_workers=max_workers,
-                        throughput_per_min=(stats['processed_candidates'] / 
-                                           (time.time() - start_time)) * 60
+                        throughput_per_min=(stats['processed_candidates'] / elapsed) * 60
                     )
                     
+                    avg_jobs = stats['total_jobs_evaluated'] / stats['processed_candidates']
                     logger.info(
                         f"Progress: {stats['processed_candidates']}/{len(candidate_ids)} "
                         f"({stats['processed_candidates']/len(candidate_ids)*100:.1f}%) "
                         f"- Success: {stats['successful_candidates']}, "
-                        f"Failed: {stats['failed_candidates']}"
+                        f"Failed: {stats['failed_candidates']}, "
+                        f"Avg jobs/candidate: {avg_jobs:.1f}"
                     )
                 
             except Exception as e:
                 stats['failed_candidates'] += 1
                 logger.error(f"Exception processing {candidate_id}: {e}")
     
+    stats['elapsed_time_seconds'] = time.time() - start_time
+    
     # End session with actual processed counts
     monitor.end_session(
-        items_processed=stats['total_recommendations'],  # Total CV×Job pairs evaluated
-        items_success=stats['saved_to_db'],              # Successfully saved
-        items_failed=stats['failed_candidates'] * job_count,  # Failed pairs
+        items_processed=stats['total_jobs_evaluated'],  # Total CV×Job pairs actually evaluated
+        items_success=stats['saved_to_db'],             # Successfully saved
+        items_failed=stats['failed_candidates'] * (stage1_top_k if use_two_stage else job_count),
         items_skipped=0
     )
     
@@ -285,13 +341,20 @@ def generate_all_recommendations(
     logger.info("PARALLEL RECOMMENDATION GENERATION COMPLETE")
     logger.info("=" * 80)
     logger.info(f"Total candidates: {stats['total_candidates']}")
-    logger.info(f"Total jobs: {stats['total_jobs']}")
+    logger.info(f"Total jobs in DB: {stats['total_jobs']}")
+    logger.info(f"Retrieval mode: {'TWO-STAGE' if use_two_stage else 'SINGLE-STAGE'}")
+    if use_two_stage:
+        logger.info(f"  Stage 1 filter: top-{stage1_top_k} jobs per candidate")
+        logger.info(f"  Avg jobs evaluated: {stats['total_jobs_evaluated']/max(stats['successful_candidates'], 1):.1f}")
     logger.info(f"Processed candidates: {stats['processed_candidates']}")
     logger.info(f"  ✓ Successful: {stats['successful_candidates']}")
     logger.info(f"  ✗ Failed: {stats['failed_candidates']}")
     logger.info(f"Total recommendations generated: {stats['total_recommendations']}")
+    logger.info(f"Total jobs evaluated: {stats['total_jobs_evaluated']}")
     logger.info(f"Saved to database: {stats['saved_to_db']}")
     logger.info(f"Parallel workers: {max_workers}")
+    logger.info(f"Elapsed time: {stats['elapsed_time_seconds']:.2f} seconds")
+    logger.info(f"Throughput: {stats['successful_candidates']/stats['elapsed_time_seconds']:.2f} candidates/sec")
     logger.info("=" * 80)
     
     return stats
@@ -427,6 +490,23 @@ def main():
         default=10,
         help='Number of parallel worker threads for processing candidates (default: 10)'
     )
+    parser.add_argument(
+        '--single-stage',
+        action='store_true',
+        help='Use single-stage retrieval (evaluate ALL jobs). Default is two-stage for efficiency.'
+    )
+    parser.add_argument(
+        '--stage1-k',
+        type=int,
+        default=50,
+        help='Stage 1: Number of top jobs to filter (default: 50). Only used in two-stage mode.'
+    )
+    parser.add_argument(
+        '--stage1-threshold',
+        type=float,
+        default=0.3,
+        help='Stage 1: Minimum similarity threshold 0.0-1.0 (default: 0.3). Only used in two-stage mode.'
+    )
     
     args = parser.parse_args()
 
@@ -440,10 +520,20 @@ def main():
             logger.error(f"Invalid weights JSON: {e}")
             sys.exit(1)
     
+    # Two-stage retrieval settings
+    use_two_stage = not args.single_stage
+    stage1_top_k = args.stage1_k
+    stage1_threshold = args.stage1_threshold
+    
     # Initialize components
     try:
         db_manager = DatabaseManager(config.database)
-        engine = RecommendationEngine(weights=weights)
+        engine = RecommendationEngine(
+            weights=weights,
+            use_two_stage=use_two_stage,
+            stage1_top_k=stage1_top_k,
+            stage1_threshold=stage1_threshold
+        )
         
         # Initialize performance monitor
         monitor = PerformanceMonitor(db_manager)
@@ -481,14 +571,17 @@ def main():
                     print(f"   {rec['explanation']}")
                 print("\n" + "=" * 80)
         else:
-            # All candidates (parallel processing)
+            # All candidates (parallel processing with two-stage option)
             stats = generate_all_recommendations(
                 db_manager=db_manager,
                 engine=engine,
                 top_k=args.top_k,
                 save_to_db=not args.no_save_db,
                 output_dir=args.output_dir,
-                max_workers=args.workers
+                max_workers=args.workers,
+                use_two_stage=use_two_stage,
+                stage1_top_k=stage1_top_k,
+                stage1_threshold=stage1_threshold
             )
             
             if 'error' in stats:

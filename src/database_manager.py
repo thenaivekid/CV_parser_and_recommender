@@ -716,6 +716,90 @@ class DatabaseManager:
             )
             return []
     
+    def get_top_k_jobs_by_similarity(
+        self, 
+        candidate_id: str,
+        top_k: int = 50,
+        similarity_threshold: float = 0.0
+    ) -> List[Dict[str, Any]]:
+        """
+        TWO-STAGE RETRIEVAL - STAGE 1: Fast filtering using vector similarity only.
+        
+        Get top-K most semantically similar jobs for a candidate using ONLY pgvector.
+        This is much faster than computing all similarities + full scoring.
+        
+        Use this for Stage 1 filtering, then apply full scoring (Stage 2) to only these candidates.
+        
+        Performance benefits:
+        - For 500 jobs: Filters down to 50 jobs (90% reduction in Python computation)
+        - For 10,000 jobs: Filters down to 50 jobs (99.5% reduction!)
+        - Database does heavy lifting using optimized C code and vector index
+        
+        Args:
+            candidate_id: Unique candidate identifier
+            top_k: Number of top similar jobs to return (default: 50)
+            similarity_threshold: Minimum similarity score (0.0 to 1.0, default: 0.0)
+            
+        Returns:
+            List of top-K job dictionaries with 'semantic_similarity' field, 
+            ordered by similarity (highest first)
+        """
+        try:
+            # STAGE 1 QUERY: Vector similarity only, with LIMIT for efficiency
+            # The ORDER BY + LIMIT allows PostgreSQL to use the vector index optimally
+            query = """
+                SELECT 
+                    j.job_id,
+                    j.job_title,
+                    j.company,
+                    j.description,
+                    j.responsibilities,
+                    j.skills_technical,
+                    j.skills_soft,
+                    j.experience_years_min,
+                    j.experience_years_max,
+                    j.seniority_level,
+                    j.education_required,
+                    j.education_field,
+                    j.certifications,
+                    j.languages,
+                    j.location,
+                    1 - (je.embedding <=> ce.embedding) AS semantic_similarity
+                FROM 
+                    jobs j
+                    INNER JOIN job_embeddings je ON j.job_id = je.job_id
+                    CROSS JOIN candidate_embeddings ce
+                WHERE 
+                    ce.candidate_id = %s
+                    AND je.embedding IS NOT NULL
+                    AND ce.embedding IS NOT NULL
+                    AND (1 - (je.embedding <=> ce.embedding)) >= %s
+                ORDER BY 
+                    je.embedding <=> ce.embedding ASC
+                LIMIT %s
+            """
+            
+            # Track query performance for Stage 1
+            with track_query('vector_similarity_stage1_topk'):
+                self.cursor.execute(query, (candidate_id, similarity_threshold, top_k))
+                results = self.cursor.fetchall()
+            
+            columns = [desc[0] for desc in self.cursor.description]
+            top_jobs = [dict(zip(columns, row)) for row in results]
+            
+            logger.info(
+                f"Stage 1 filtered: Retrieved top-{len(top_jobs)} jobs "
+                f"(threshold >= {similarity_threshold:.2f}) for candidate {candidate_id}"
+            )
+            
+            return top_jobs
+            
+        except Exception as e:
+            logger.error(
+                f"Error in Stage 1 retrieval for candidate {candidate_id}: {e}"
+            )
+            return []
+    
     # ========== RECOMMENDATION METHODS ==========
     
     def save_recommendation(
