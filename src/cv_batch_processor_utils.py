@@ -91,9 +91,13 @@ class BatchProcessor:
                 logger.info(f"Skipping {candidate_id} - already exists")
                 return (False, f"Skipped (exists): {candidate_id}")
             
-            # Step 1: Parse PDF
+            # Step 1: Parse PDF with security protections
             logger.info(f"Parsing: {pdf_path.name}")
-            resume_json = self.parser.parse_cv(str(pdf_path))
+            resume_json = self.parser.parse_cv(
+                pdf_path=str(pdf_path),
+                candidate_id=candidate_id,
+                db_manager=self.db_manager
+            )
             
             if not resume_json:
                 logger.warning(f"Failed to parse or empty resume: {pdf_path.name}")

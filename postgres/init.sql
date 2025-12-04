@@ -163,6 +163,26 @@ CREATE TABLE IF NOT EXISTS processing_sessions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create suspicious_resumes table for security monitoring
+CREATE TABLE IF NOT EXISTS suspicious_resumes (
+    id SERIAL PRIMARY KEY,
+    candidate_id VARCHAR(255) NOT NULL REFERENCES candidates(candidate_id) ON DELETE CASCADE,
+    detection_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    threats_detected TEXT[],
+    anomalies_detected TEXT[],
+    threat_count INTEGER DEFAULT 0,
+    anomaly_count INTEGER DEFAULT 0,
+    severity VARCHAR(20) CHECK (severity IN ('none', 'low', 'medium', 'high', 'critical')),
+    requires_manual_review BOOLEAN DEFAULT FALSE,
+    reviewed BOOLEAN DEFAULT FALSE,
+    reviewed_by VARCHAR(255),
+    reviewed_at TIMESTAMP,
+    review_notes TEXT,
+    false_positive BOOLEAN DEFAULT FALSE,
+    metadata JSONB,
+    UNIQUE(candidate_id)
+);
+
 -- Create indices for performance queries
 CREATE INDEX IF NOT EXISTS idx_perf_operation_type ON performance_metrics(operation_type);
 CREATE INDEX IF NOT EXISTS idx_perf_timestamp ON performance_metrics(timestamp);
@@ -171,3 +191,8 @@ CREATE INDEX IF NOT EXISTS idx_query_timestamp ON query_performance(timestamp);
 CREATE INDEX IF NOT EXISTS idx_system_timestamp ON system_metrics(timestamp);
 CREATE INDEX IF NOT EXISTS idx_session_type ON processing_sessions(session_type);
 CREATE INDEX IF NOT EXISTS idx_session_timestamp ON processing_sessions(start_time);
+
+-- Create indices for security table
+CREATE INDEX IF NOT EXISTS idx_suspicious_severity ON suspicious_resumes(severity);
+CREATE INDEX IF NOT EXISTS idx_suspicious_timestamp ON suspicious_resumes(detection_timestamp);
+CREATE INDEX IF NOT EXISTS idx_suspicious_review ON suspicious_resumes(requires_manual_review, reviewed);

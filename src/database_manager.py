@@ -1132,6 +1132,141 @@ class DatabaseManager:
             logger.error(f"Error getting recommendation count: {e}")
             return 0
     
+    # ========== SECURITY METHODS ==========
+    
+    def log_suspicious_resume(
+        self, 
+        candidate_id: str,
+        threats: List[str],
+        anomalies: List[str],
+        severity: str,
+        requires_review: bool,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Log suspicious resume for security monitoring
+        
+        Args:
+            candidate_id: Candidate identifier
+            threats: List of detected threats
+            anomalies: List of detected anomalies
+            severity: Severity level (none, low, medium, high, critical)
+            requires_review: Whether manual review is required
+            metadata: Additional metadata
+            
+        Returns:
+            True if successful
+        """
+        try:
+            insert_query = """
+                INSERT INTO suspicious_resumes (
+                    candidate_id, threats_detected, anomalies_detected,
+                    threat_count, anomaly_count, severity,
+                    requires_manual_review, metadata
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (candidate_id) 
+                DO UPDATE SET
+                    detection_timestamp = CURRENT_TIMESTAMP,
+                    threats_detected = EXCLUDED.threats_detected,
+                    anomalies_detected = EXCLUDED.anomalies_detected,
+                    threat_count = EXCLUDED.threat_count,
+                    anomaly_count = EXCLUDED.anomaly_count,
+                    severity = EXCLUDED.severity,
+                    requires_manual_review = EXCLUDED.requires_manual_review,
+                    metadata = EXCLUDED.metadata
+            """
+            
+            self.cursor.execute(insert_query, (
+                candidate_id,
+                threats,
+                anomalies,
+                len(threats),
+                len(anomalies),
+                severity,
+                requires_review,
+                Json(metadata) if metadata else None
+            ))
+            
+            self.conn.commit()
+            logger.info(f"Logged suspicious resume: {candidate_id} (severity: {severity})")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to log suspicious resume: {e}")
+            self.conn.rollback()
+            return False
+    
+    def get_suspicious_resumes(
+        self,
+        severity: Optional[str] = None,
+        requires_review: Optional[bool] = None,
+        reviewed: Optional[bool] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve suspicious resumes with optional filters
+        
+        Args:
+            severity: Filter by severity level
+            requires_review: Filter by manual review requirement
+            reviewed: Filter by review status
+            
+        Returns:
+            List of suspicious resume records
+        """
+        try:
+            query = """
+                SELECT 
+                    s.id, s.candidate_id, c.name,
+                    s.detection_timestamp, s.threats_detected, s.anomalies_detected,
+                    s.threat_count, s.anomaly_count, s.severity,
+                    s.requires_manual_review, s.reviewed, s.reviewed_by,
+                    s.reviewed_at, s.review_notes, s.false_positive, s.metadata
+                FROM suspicious_resumes s
+                JOIN candidates c ON s.candidate_id = c.candidate_id
+                WHERE 1=1
+            """
+            params = []
+            
+            if severity:
+                query += " AND s.severity = %s"
+                params.append(severity)
+            
+            if requires_review is not None:
+                query += " AND s.requires_manual_review = %s"
+                params.append(requires_review)
+            
+            if reviewed is not None:
+                query += " AND s.reviewed = %s"
+                params.append(reviewed)
+            
+            query += " ORDER BY s.detection_timestamp DESC"
+            
+            self.cursor.execute(query, tuple(params))
+            
+            columns = [
+                'id', 'candidate_id', 'name', 'detection_timestamp',
+                'threats_detected', 'anomalies_detected', 'threat_count',
+                'anomaly_count', 'severity', 'requires_manual_review',
+                'reviewed', 'reviewed_by', 'reviewed_at', 'review_notes',
+                'false_positive', 'metadata'
+            ]
+            
+            results = []
+            for row in self.cursor.fetchall():
+                result = dict(zip(columns, row))
+                # Convert timestamp to ISO string
+                if result['detection_timestamp']:
+                    result['detection_timestamp'] = result['detection_timestamp'].isoformat()
+                if result['reviewed_at']:
+                    result['reviewed_at'] = result['reviewed_at'].isoformat()
+                results.append(result)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error retrieving suspicious resumes: {e}")
+            return []
+    
     def close(self):
         """Close database connection"""
         if self.cursor:
