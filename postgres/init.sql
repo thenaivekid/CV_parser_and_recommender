@@ -196,3 +196,43 @@ CREATE INDEX IF NOT EXISTS idx_session_timestamp ON processing_sessions(start_ti
 CREATE INDEX IF NOT EXISTS idx_suspicious_severity ON suspicious_resumes(severity);
 CREATE INDEX IF NOT EXISTS idx_suspicious_timestamp ON suspicious_resumes(detection_timestamp);
 CREATE INDEX IF NOT EXISTS idx_suspicious_review ON suspicious_resumes(requires_manual_review, reviewed);
+
+-- ============================================================================
+-- EVALUATION TRACKING TABLES (Optional - for development use only)
+-- ============================================================================
+
+-- Evaluation sessions table - tracks each evaluation run
+CREATE TABLE IF NOT EXISTS evaluation_sessions (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(255) UNIQUE NOT NULL,
+    evaluation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    split_name VARCHAR(20) NOT NULL,  -- 'train', 'val', 'test'
+    top_k INTEGER,
+    k_values INTEGER[],
+    num_candidates INTEGER,
+    num_jobs INTEGER,
+    use_existing_recommendations BOOLEAN,
+    duration_seconds FLOAT,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Evaluation metrics table - stores aggregate metrics for each session
+CREATE TABLE IF NOT EXISTS evaluation_metrics (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(255) NOT NULL REFERENCES evaluation_sessions(session_id) ON DELETE CASCADE,
+    model_name VARCHAR(100) NOT NULL,  -- 'main_system', 'random', 'popularity', etc.
+    metric_name VARCHAR(50) NOT NULL,  -- 'precision@10', 'ndcg@5', 'mrr', etc.
+    metric_value FLOAT NOT NULL,
+    k_value INTEGER,  -- NULL for metrics like MRR that don't use K
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(session_id, model_name, metric_name, k_value)
+);
+
+-- Create indices for evaluation queries
+CREATE INDEX IF NOT EXISTS idx_eval_session_id ON evaluation_sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_eval_split ON evaluation_sessions(split_name);
+CREATE INDEX IF NOT EXISTS idx_eval_date ON evaluation_sessions(evaluation_date);
+CREATE INDEX IF NOT EXISTS idx_eval_metrics_session ON evaluation_metrics(session_id);
+CREATE INDEX IF NOT EXISTS idx_eval_metrics_model ON evaluation_metrics(model_name);
+CREATE INDEX IF NOT EXISTS idx_eval_metrics_name ON evaluation_metrics(metric_name);
