@@ -1,7 +1,7 @@
 # CV parser and recommender
 
 ## Usage
-**Needs Linux machine with git, python, docker and docker-compose installed.**
+**Needs Linux machine with git, python, docker and docker-compose installed. Also, python venv should be supported.**
 - If docker-compose not present else skip :
 ```bash
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
@@ -28,7 +28,9 @@ chmod +x ./scripts/*.sh
 # create python env
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install uv
+uv pip install -r requirements.txt
+
 
 # start postgresql docker container
 ./scripts/init_database.sh #for creating tables for first time
