@@ -41,8 +41,7 @@ pip install -r requirements.txt
 ./scripts/test_all.sh
 
 # run cv parsing using test pdfs from dataset downloaded earlier
-./scripts/run_cv_batch_processing
-.sh 
+./scripts/run_cv_batch_processing.sh 
 
 # run job processing
 ./scripts/run_job_processing.sh
