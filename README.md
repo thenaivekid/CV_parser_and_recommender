@@ -30,6 +30,9 @@ pip install -r requirements.txt
 # install redis
 ./scripts/install_redis.sh
 
+# run tests
+./scripts/test_all.sh
+
 # run cv parsing using test pdfs from dataset downloaded earlier
 ./scripts/run_cv_batch_processing
 .sh 
