@@ -1,0 +1,17 @@
+{
+  "job_title": "IT Officer - Operations",
+  "company": "First National Bank",
+  "description": "Maintain and support day-to-day IT operations for a busy banking environment, ensuring system availability, security, and compliance with internal controls.",
+  "responsibilities": "Provide L2 support for applications and infrastructure; monitor servers and networks; apply security patches and updates; manage backups and disaster recovery procedures; liaise with vendors and auditors; maintain documentation and standard operating procedures.",
+  "skills_technical": ["Windows Server & Active Directory","Linux administration","SQL database support","Network troubleshooting (TCP/IP, VLANs)","Firewall and endpoint security management","Backup and recovery processes"],
+  "skills_soft": ["Analytical thinking","Clear stakeholder communication","Prioritization","Attention to compliance details","Problem solving"],
+  "experience_years_min": 3,
+  "experience_years_max": 6,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Computer Science / Information Technology",
+  "certifications": ["CompTIA Security+","Cisco CCNA (preferred)","ITIL Foundation (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}, {"language":"Hindi","proficiency":"Conversational"}],
+  "location": {"city":"Mumbai","country":"India","on_site": true},
+  "application_deadline": "2026-03-01"
+}

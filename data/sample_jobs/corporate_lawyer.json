@@ -1,0 +1,17 @@
+{
+  "job_title": "Corporate Lawyer (Associate)",
+  "company": "Hamilton & Partners LLP",
+  "description": "Advise corporate clients on commercial transactions, mergers and acquisitions, corporate governance, and regulatory compliance. Draft and review contracts, conduct legal due diligence, and support senior partners on complex deals.",
+  "responsibilities": "Draft and negotiate commercial contracts; conduct legal research and due diligence; advise on corporate structuring and governance; assist with M&A transactions; review shareholder agreements and board resolutions; ensure compliance with corporate law; liaise with regulatory authorities and external counsel.",
+  "skills_technical": ["Contract drafting","Legal research","Due diligence","Corporate law","M&A transactions","Company secretarial work","Legal databases (LexisNexis, Westlaw)"],
+  "skills_soft": ["Analytical thinking","Negotiation","Attention to detail","Client management","Written communication"],
+  "experience_years_min": 2,
+  "experience_years_max": 5,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor of Law (LL.B)",
+  "education_field": "Law",
+  "certifications": ["Bar admission (required)","Notary (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Melbourne","country":"Australia","on_site": true},
+  "application_deadline": "2026-04-10"
+}

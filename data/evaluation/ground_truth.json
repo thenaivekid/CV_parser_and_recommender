@@ -1,0 +1,725 @@
+[
+  {
+    "candidate_id": "ACCOUNTANT_10554236",
+    "candidate_name": "",
+    "profession": "ACCOUNTANT",
+    "recommendations": [
+      {
+        "job_id": "ACCOUNTANT",
+        "job_title": "Accountant"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "junior_accountant",
+        "job_title": "Junior Accountant"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ACCOUNTANT_10674770",
+    "candidate_name": "",
+    "profession": "ACCOUNTANT",
+    "recommendations": [
+      {
+        "job_id": "ACCOUNTANT",
+        "job_title": "Accountant"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "junior_accountant",
+        "job_title": "Junior Accountant"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ACCOUNTANT_11163645",
+    "candidate_name": "Gail L. Lugo",
+    "profession": "ACCOUNTANT",
+    "recommendations": [
+      {
+        "job_id": "ACCOUNTANT",
+        "job_title": "Accountant"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "junior_accountant",
+        "job_title": "Junior Accountant"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ACCOUNTANT_11759079",
+    "candidate_name": "",
+    "profession": "ACCOUNTANT",
+    "recommendations": [
+      {
+        "job_id": "ACCOUNTANT",
+        "job_title": "Accountant"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "junior_accountant",
+        "job_title": "Junior Accountant"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ACCOUNTANT_12065211",
+    "candidate_name": "",
+    "profession": "ACCOUNTANT",
+    "recommendations": [
+      {
+        "job_id": "ACCOUNTANT",
+        "job_title": "Accountant"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "junior_accountant",
+        "job_title": "Junior Accountant"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ADVOCATE_10186968",
+    "candidate_name": "",
+    "profession": "ADVOCATE",
+    "recommendations": [
+      {
+        "job_id": "ADVOCATE",
+        "job_title": "Advocate / Legal Counsel"
+      },
+      {
+        "job_id": "corporate_lawyer",
+        "job_title": "Corporate Lawyer (Associate)"
+      },
+      {
+        "job_id": "litigation_lawyer",
+        "job_title": "Litigation Lawyer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ADVOCATE_10344379",
+    "candidate_name": "",
+    "profession": "ADVOCATE",
+    "recommendations": [
+      {
+        "job_id": "ADVOCATE",
+        "job_title": "Advocate / Legal Counsel"
+      },
+      {
+        "job_id": "corporate_lawyer",
+        "job_title": "Corporate Lawyer (Associate)"
+      },
+      {
+        "job_id": "litigation_lawyer",
+        "job_title": "Litigation Lawyer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ADVOCATE_10659182",
+    "candidate_name": "",
+    "profession": "ADVOCATE",
+    "recommendations": [
+      {
+        "job_id": "ADVOCATE",
+        "job_title": "Advocate / Legal Counsel"
+      },
+      {
+        "job_id": "corporate_lawyer",
+        "job_title": "Corporate Lawyer (Associate)"
+      },
+      {
+        "job_id": "litigation_lawyer",
+        "job_title": "Litigation Lawyer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ADVOCATE_10818478",
+    "candidate_name": "",
+    "profession": "ADVOCATE",
+    "recommendations": [
+      {
+        "job_id": "ADVOCATE",
+        "job_title": "Advocate / Legal Counsel"
+      },
+      {
+        "job_id": "corporate_lawyer",
+        "job_title": "Corporate Lawyer (Associate)"
+      },
+      {
+        "job_id": "litigation_lawyer",
+        "job_title": "Litigation Lawyer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ADVOCATE_11174187",
+    "candidate_name": "",
+    "profession": "ADVOCATE",
+    "recommendations": [
+      {
+        "job_id": "ADVOCATE",
+        "job_title": "Advocate / Legal Counsel"
+      },
+      {
+        "job_id": "corporate_lawyer",
+        "job_title": "Corporate Lawyer (Associate)"
+      },
+      {
+        "job_id": "litigation_lawyer",
+        "job_title": "Litigation Lawyer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ARTS_10830646",
+    "candidate_name": "",
+    "profession": "ARTS",
+    "recommendations": [
+      {
+        "job_id": "art_collection_helper",
+        "job_title": "Art Collection Helper"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ARTS_11187796",
+    "candidate_name": "",
+    "profession": "ARTS",
+    "recommendations": [
+      {
+        "job_id": "art_collection_helper",
+        "job_title": "Art Collection Helper"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ARTS_11360471",
+    "candidate_name": "",
+    "profession": "ARTS",
+    "recommendations": [
+      {
+        "job_id": "art_collection_helper",
+        "job_title": "Art Collection Helper"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "ARTS_11555549",
+    "candidate_name": "",
+    "profession": "ARTS",
+    "recommendations": [
+      {
+        "job_id": "art_collection_helper",
+        "job_title": "Art Collection Helper"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "CHEF_10001727",
+    "candidate_name": "",
+    "profession": "CHEF",
+    "recommendations": [
+      {
+        "job_id": "chef_for_kitchen",
+        "job_title": "Chef - Kitchen"
+      },
+      {
+        "job_id": "restaurant_manager",
+        "job_title": "Restaurant Manager"
+      }
+    ]
+  },
+  {
+    "candidate_id": "CHEF_10276858",
+    "candidate_name": "",
+    "profession": "CHEF",
+    "recommendations": [
+      {
+        "job_id": "chef_for_kitchen",
+        "job_title": "Chef - Kitchen"
+      },
+      {
+        "job_id": "restaurant_manager",
+        "job_title": "Restaurant Manager"
+      }
+    ]
+  },
+  {
+    "candidate_id": "DESIGNER_10466583",
+    "candidate_name": "",
+    "profession": "DESIGNER",
+    "recommendations": [
+      {
+        "job_id": "DESIGNER",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "DESIGNER_10748989",
+    "candidate_name": "",
+    "profession": "DESIGNER",
+    "recommendations": [
+      {
+        "job_id": "DESIGNER",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "DESIGNER_10751444",
+    "candidate_name": "",
+    "profession": "DESIGNER",
+    "recommendations": [
+      {
+        "job_id": "DESIGNER",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "DESIGNER_11155153",
+    "candidate_name": "",
+    "profession": "DESIGNER",
+    "recommendations": [
+      {
+        "job_id": "DESIGNER",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "DESIGNER_11722421",
+    "candidate_name": "",
+    "profession": "DESIGNER",
+    "recommendations": [
+      {
+        "job_id": "DESIGNER",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "graphic_designer",
+        "job_title": "Graphic Designer"
+      },
+      {
+        "job_id": "ux_ui_designer",
+        "job_title": "UX/UI Designer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "FINANCE_10549585",
+    "candidate_name": "",
+    "profession": "FINANCE",
+    "recommendations": [
+      {
+        "job_id": "FINANCE",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "FINANCE_11441764",
+    "candidate_name": "",
+    "profession": "FINANCE",
+    "recommendations": [
+      {
+        "job_id": "FINANCE",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "FINANCE_11490673",
+    "candidate_name": "",
+    "profession": "FINANCE",
+    "recommendations": [
+      {
+        "job_id": "FINANCE",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "FINANCE_11877150",
+    "candidate_name": "",
+    "profession": "FINANCE",
+    "recommendations": [
+      {
+        "job_id": "FINANCE",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "FINANCE_12071138",
+    "candidate_name": "",
+    "profession": "FINANCE",
+    "recommendations": [
+      {
+        "job_id": "FINANCE",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "finance_manager",
+        "job_title": "Finance Manager"
+      },
+      {
+        "job_id": "financial_analyst",
+        "job_title": "Financial Analyst"
+      },
+      {
+        "job_id": "senior_accountant",
+        "job_title": "Senior Accountant"
+      }
+    ]
+  },
+  {
+    "candidate_id": "FITNESS_10235429",
+    "candidate_name": "",
+    "profession": "FITNESS",
+    "recommendations": [
+      {
+        "job_id": "fitness_coach",
+        "job_title": "Fitness Coach"
+      }
+    ]
+  },
+  {
+    "candidate_id": "FITNESS_10268614",
+    "candidate_name": "",
+    "profession": "FITNESS",
+    "recommendations": [
+      {
+        "job_id": "fitness_coach",
+        "job_title": "Fitness Coach"
+      }
+    ]
+  },
+  {
+    "candidate_id": "HR_10399912",
+    "candidate_name": "",
+    "profession": "HR",
+    "recommendations": [
+      {
+        "job_id": "HR",
+        "job_title": "Human Resources Manager"
+      },
+      {
+        "job_id": "hr_business_partner",
+        "job_title": "HR Business Partner"
+      },
+      {
+        "job_id": "hr_recruiter",
+        "job_title": "HR Recruiter"
+      }
+    ]
+  },
+  {
+    "candidate_id": "HR_10694288",
+    "candidate_name": "",
+    "profession": "HR",
+    "recommendations": [
+      {
+        "job_id": "HR",
+        "job_title": "Human Resources Manager"
+      },
+      {
+        "job_id": "hr_business_partner",
+        "job_title": "HR Business Partner"
+      },
+      {
+        "job_id": "hr_recruiter",
+        "job_title": "HR Recruiter"
+      }
+    ]
+  },
+  {
+    "candidate_id": "HR_11480899",
+    "candidate_name": "",
+    "profession": "HR",
+    "recommendations": [
+      {
+        "job_id": "HR",
+        "job_title": "Human Resources Manager"
+      },
+      {
+        "job_id": "hr_business_partner",
+        "job_title": "HR Business Partner"
+      },
+      {
+        "job_id": "hr_recruiter",
+        "job_title": "HR Recruiter"
+      }
+    ]
+  },
+  {
+    "candidate_id": "HR_11592605",
+    "candidate_name": "",
+    "profession": "HR",
+    "recommendations": [
+      {
+        "job_id": "HR",
+        "job_title": "Human Resources Manager"
+      },
+      {
+        "job_id": "hr_business_partner",
+        "job_title": "HR Business Partner"
+      },
+      {
+        "job_id": "hr_recruiter",
+        "job_title": "HR Recruiter"
+      }
+    ]
+  },
+  {
+    "candidate_id": "HR_11698189",
+    "candidate_name": "HR EMPLOYEE RELATIONS SPECIALIST",
+    "profession": "HR",
+    "recommendations": [
+      {
+        "job_id": "HR",
+        "job_title": "Human Resources Manager"
+      },
+      {
+        "job_id": "hr_business_partner",
+        "job_title": "HR Business Partner"
+      },
+      {
+        "job_id": "hr_recruiter",
+        "job_title": "HR Recruiter"
+      }
+    ]
+  },
+  {
+    "candidate_id": "INFORMATION-TECHNOLOGY_10089434",
+    "candidate_name": "",
+    "profession": "INFORMATION-TECHNOLOGY",
+    "recommendations": [
+      {
+        "job_id": "data_scientist_nlp",
+        "job_title": "NLP Data Scientist"
+      },
+      {
+        "job_id": "it_officer_bank",
+        "job_title": "IT Officer - Operations"
+      },
+      {
+        "job_id": "software_engineer_backend",
+        "job_title": "Senior Backend Software Engineer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "INFORMATION-TECHNOLOGY_10247517",
+    "candidate_name": "",
+    "profession": "INFORMATION-TECHNOLOGY",
+    "recommendations": [
+      {
+        "job_id": "data_scientist_nlp",
+        "job_title": "NLP Data Scientist"
+      },
+      {
+        "job_id": "it_officer_bank",
+        "job_title": "IT Officer - Operations"
+      },
+      {
+        "job_id": "software_engineer_backend",
+        "job_title": "Senior Backend Software Engineer"
+      }
+    ]
+  },
+  {
+    "candidate_id": "TEACHER_10504237",
+    "candidate_name": "",
+    "profession": "TEACHER",
+    "recommendations": [
+      {
+        "job_id": "english_teacher",
+        "job_title": "English Teacher"
+      }
+    ]
+  },
+  {
+    "candidate_id": "TEACHER_10527994",
+    "candidate_name": "",
+    "profession": "TEACHER",
+    "recommendations": [
+      {
+        "job_id": "english_teacher",
+        "job_title": "English Teacher"
+      }
+    ]
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "job_title": "Restaurant Manager",
+  "company": "Harbor Bistro",
+  "description": "Oversee daily restaurant operations at Harbor Bistro, ensuring high standards of service, efficient back-of-house coordination, and profitable business performance.",
+  "responsibilities": "Manage front and back of house teams; recruit, train and coach staff; oversee stock, inventory and supplier relationships; handle scheduling and wage costs; ensure compliance with food safety and hygiene standards; manage guest experience and handle escalations; analyse P&L and work on revenue growth initiatives.",
+  "skills_technical": ["P&L management","Inventory control","HACCP / Food Safety","POS systems (e.g., Toast)","Staff rostering","Basic HR and labour law awareness"],
+  "skills_soft": ["Leadership","Customer-focused","Conflict resolution","Operational prioritization","Coaching and development"],
+  "experience_years_min": 3,
+  "experience_years_max": 6,
+  "seniority_level": "Mid",
+  "education_required": "Diploma or Bachelor's Degree",
+  "education_field": "Hospitality Management / Business Administration",
+  "certifications": ["Food Safety Certification (required)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Auckland","country":"New Zealand","on_site": true},
+  "application_deadline": "2026-04-01"
+}

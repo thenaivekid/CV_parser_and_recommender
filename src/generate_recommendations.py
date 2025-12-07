@@ -719,17 +719,6 @@ def main():
     finally:
         db_manager.close()
         
-        # # Generate performance dashboard
-        # logger.info("\n📊 Generating performance dashboard...")
-        # try:
-        #     output_dir_path = Path("data/performance_reports")
-        #     dashboard_gen = DashboardGenerator()
-        #     report = dashboard_gen.generate_report(output_dir_path)
-        #     logger.info(f"✓ Performance dashboard saved to {output_dir_path}")
-        #     logger.info(f"  View: {output_dir_path}/performance_dashboard_*.html")
-        # except Exception as e:
-        #     logger.warning(f"Could not generate dashboard: {e}")
-    
     logger.info("Done!")
 
 

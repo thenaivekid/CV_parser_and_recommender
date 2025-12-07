@@ -67,11 +67,11 @@ def test_pgvector_only():
             print(f"   Overall Match: {rec['match_score']:.2%}")
             print(f"   Semantic Similarity: {rec['matching_factors']['semantic_similarity']:.2%}")
         
-        logger.info("\n✅ Backward compatibility test passed!")
+        logger.info("\nBackward compatibility test passed!")
         logger.info("System works correctly without Redis (pgvector fallback)")
         
     except Exception as e:
-        logger.error(f"❌ Test failed: {e}")
+        logger.error(f"Test failed: {e}")
         import traceback
         traceback.print_exc()
     

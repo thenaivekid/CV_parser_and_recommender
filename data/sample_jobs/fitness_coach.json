@@ -1,0 +1,17 @@
+{
+  "job_title": "Fitness Coach",
+  "company": "Pulse Fitness Studio",
+  "description": "Deliver one-to-one and group fitness sessions, design personalized training programs, and support members to achieve measurable fitness goals.",
+  "responsibilities": "Conduct fitness assessments; design and deliver training plans; teach group classes; monitor client progress and adjust programs; maintain a safe training environment and uphold studio policies.",
+  "skills_technical": ["Personal training program design","Group class instruction","CPR/First Aid","Strength & conditioning knowledge","Basic nutrition guidance"],
+  "skills_soft": ["Motivational coaching","Strong communication","Empathy","Client relationship management","Reliability"],
+  "experience_years_min": 1,
+  "experience_years_max": 4,
+  "seniority_level": "Associate",
+  "education_required": "Diploma in Fitness or Sports Science",
+  "education_field": "Sports Science / Exercise Science",
+  "certifications": ["Certified Personal Trainer (e.g., NASM/CPT or equivalent)", "CPR/AED"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"New York","country":"USA","on_site": true},
+  "application_deadline": "2026-01-15"
+}

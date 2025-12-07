@@ -5,7 +5,8 @@ __pycache__/
 *.pyc
 .DS_Store
 resume-dataset/
-data/
+data/performance_reports/
+data/recommendations/
 .vscode/
 logs/
 *.log

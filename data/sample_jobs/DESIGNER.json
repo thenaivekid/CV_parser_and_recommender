@@ -1,0 +1,17 @@
+{
+  "job_title": "Graphic Designer",
+  "company": "Brightline Creative Studio",
+  "description": "Design visual assets for digital and print media, collaborate with cross-functional teams to produce brand-consistent materials, and participate in creative strategy.",
+  "responsibilities": "Create branding, marketing collateral, social media graphics, and UI assets; prepare final artwork for print; iterate with stakeholders; maintain design systems.",
+  "skills_technical": ["Adobe Creative Suite (Photoshop/Illustrator/Indesign)","Figma","UI/UX basics","Typography","Layout design"],
+  "skills_soft": ["Creativity","Collaboration","Time management","Attention to detail"],
+  "experience_years_min": 1,
+  "experience_years_max": 4,
+  "seniority_level": "Junior-Mid",
+  "education_required": "Diploma / Bachelor's Degree",
+  "education_field": "Design / Visual Communications",
+  "certifications": ["Portfolio required"],
+  "languages": [{"language":"English","proficiency":"Professional"}],
+  "location": {"city":"Brisbane","country":"Australia","on_site": false},
+  "application_deadline": "2026-02-28"
+}

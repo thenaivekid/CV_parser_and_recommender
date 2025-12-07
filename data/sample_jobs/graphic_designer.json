@@ -1,0 +1,17 @@
+{
+  "job_title": "Graphic Designer",
+  "company": "BrandCraft Agency",
+  "description": "Create compelling visual content for branding, marketing campaigns, social media, and print collateral. Work closely with the creative team to deliver designs that align with client brand identities.",
+  "responsibilities": "Design marketing materials including brochures, posters, and digital ads; create social media graphics and web banners; develop brand identities and style guides; prepare print-ready artwork; collaborate with copywriters and account managers; present design concepts to clients; maintain organized asset libraries.",
+  "skills_technical": ["Adobe Photoshop","Adobe Illustrator","Adobe InDesign","Typography","Brand identity design","Print design","Digital illustration","Layout design"],
+  "skills_soft": ["Creativity","Visual storytelling","Time management","Receptiveness to feedback","Presentation skills"],
+  "experience_years_min": 1,
+  "experience_years_max": 4,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree or Diploma",
+  "education_field": "Graphic Design / Visual Arts",
+  "certifications": [],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Cape Town","country":"South Africa","on_site": true},
+  "application_deadline": "2026-03-15"
+}

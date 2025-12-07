@@ -1,5 +1,48 @@
 # CV parser and recommender
 
+## Usage
+Needs Linux machine with git, python, docker and docker-compose installed.
+```bash
+git clone https://github.com/thenaivekid/CV_parser_and_recommender.git
+
+cd CV_parser_and_recommender
+
+#get the test resume dataset
+curl -L -o resume-dataset.zip https://www.kaggle.com/api/v1/datasets/download/snehaanbhawal/resume-dataset
+unzip resume-dataset.zip -d resume-dataset
+
+# make all scripts executable
+chmod +x ./scripts/*.sh
+
+# start postgresql docker container
+./scripts/init_database.sh #for creating tables for first time
+./scripts/restart_db.sh #after running init_database.sh once, keeps the data from earlier sessions
+
+# install redis
+./scripts/install_redis.sh
+
+# run cv parsing using test pdfs from dataset downloaded earlier
+./scripts/run_cv_batch_processing
+.sh 
+
+# run job processing
+./scripts/run_job_processing.sh
+
+# run generate recommendations
+./scripts/run_recommendations.sh
+
+# run evaluation pipeline to get qualitative evals of generated recommendations, using dummy test ground truth
+./scripts/run_evaluation.sh
+
+# generate dashboard to see performance metrics in terms of system throughput and so on(uses stored values during parsing and recommendation generation if nothing is running currently)
+./scripts/generate_dashboard.sh # see ./data/performance_reports to see the html generated showing performace metrics
+
+# run recommendation using 2 stage vs 1 stage comparision
+./scripts/run_recommendation_benchmark.sh 
+
+
+```
+
 ## Resume Parser
 
 The resume parser intelligently extracts structured data from PDF CVs using LLM-powered NLP. It handles diverse CV layouts (traditional, modern, multi-column) and converts them into standardized JSON format with fields like work experience, education, skills, and certifications.
@@ -174,4 +217,10 @@ See configuration in `configurations/config.yaml`.
 ✅ Vector embeddings - Using sentence-transformers/all-mpnet-base-v2 (768-dim)
 
 
+
+#!/bin/bash
+!curl -L -o resume-dataset.zip\
+  https://www.kaggle.com/api/v1/datasets/download/snehaanbhawal/resume-dataset
+!unzip resume-dataset.zip -d resume-dataset
+!ls resume-dataset
 

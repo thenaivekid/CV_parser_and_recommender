@@ -1,0 +1,17 @@
+{
+  "job_title": "Registered Nurse - Emergency Department",
+  "company": "St. Mary's Hospital",
+  "description": "Provide high-quality, compassionate nursing care within a busy Emergency Department. Triage, stabilize and manage acute presentations in collaboration with the multidisciplinary clinical team.",
+  "responsibilities": "Perform triage and initial assessment; provide emergency care and medication administration; insert IVs and manage lines; document patient encounters in EMR; handover and coordinate with physicians and allied health; participate in resuscitation and trauma calls; maintain infection control and patient safety standards.",
+  "skills_technical": ["BLS & ACLS","Triage","IV insertion","Wound care","Emergency medication administration","EMR systems (Epic/Cerner)","Basic suturing and splinting"],
+  "skills_soft": ["Calm under pressure","Teamwork","Clear communication","Empathy","Time management"],
+  "experience_years_min": 2,
+  "experience_years_max": 5,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor of Science in Nursing (BSN)",
+  "education_field": "Nursing",
+  "certifications": ["Registered Nurse (license required)", "BLS (required)", "ACLS (required)"],
+  "languages": [{"language":"English","proficiency":"Fluent"},{"language":"Hindi","proficiency":"Conversational"}],
+  "location": {"city":"Toronto","country":"Canada","on_site": true},
+  "application_deadline": "2026-02-28"
+}

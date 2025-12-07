@@ -1,0 +1,17 @@
+{
+  "job_title": "Litigation Lawyer",
+  "company": "Sharma & Associates",
+  "description": "Represent clients in civil litigation matters including contract disputes, property disputes, and consumer cases. Draft pleadings, appear in court, and negotiate settlements on behalf of clients.",
+  "responsibilities": "Conduct legal research and prepare case strategies; draft pleadings, affidavits, and legal briefs; appear before district and high courts; handle client consultations and manage case files; negotiate settlements and compromises; liaise with opposing counsel and court staff; maintain case documentation and compliance.",
+  "skills_technical": ["Civil litigation","Legal drafting","Court procedure","Case law research","Client counseling","Evidence law","Legal argumentation"],
+  "skills_soft": ["Persuasion","Confident presentation","Strategic thinking","Composure under pressure","Client empathy"],
+  "experience_years_min": 3,
+  "experience_years_max": 7,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor of Law (LL.B)",
+  "education_field": "Law",
+  "certifications": ["Bar Council enrollment (required)"],
+  "languages": [{"language":"English","proficiency":"Fluent"},{"language":"Hindi","proficiency":"Fluent"}],
+  "location": {"city":"Pune","country":"India","on_site": true},
+  "application_deadline": "2026-03-31"
+}

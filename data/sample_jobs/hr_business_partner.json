@@ -1,0 +1,17 @@
+{
+  "job_title": "HR Business Partner",
+  "company": "TechWave Solutions",
+  "description": "Partner with business leaders to align HR strategies with organizational goals. Drive talent management, employee engagement, performance management, and organizational development initiatives.",
+  "responsibilities": "Act as strategic HR advisor to business units; lead talent acquisition and succession planning; design and implement performance management processes; manage employee relations and conflict resolution; drive engagement surveys and action planning; support organizational restructuring and change management; ensure compliance with labor laws; coach managers on people matters.",
+  "skills_technical": ["HR strategy","Talent management","Performance management","HRIS (Workday, SAP SuccessFactors)","Workforce planning","Labor law compliance","Data-driven HR analytics"],
+  "skills_soft": ["Strategic partnership","Influencing","Coaching","Conflict resolution","Change management"],
+  "experience_years_min": 5,
+  "experience_years_max": 8,
+  "seniority_level": "Senior",
+  "education_required": "Bachelor's or Master's Degree",
+  "education_field": "Human Resources / Business Administration / Psychology",
+  "certifications": ["SHRM-CP/SCP or CIPD (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Bangalore","country":"India","on_site": false},
+  "application_deadline": "2026-04-15"
+}

@@ -1,0 +1,17 @@
+{
+  "job_title": "Advocate / Legal Counsel",
+  "company": "Harper & Co. Legal",
+  "description": "Provide legal advice and representation, draft and review legal documents, and support litigation and compliance activities for corporate and individual clients.",
+  "responsibilities": "Research case law and legal precedents; draft contracts and pleadings; represent clients in hearings; advise on regulatory compliance; liaise with clients and external counsel.",
+  "skills_technical": ["Legal research","Contract drafting","Litigation support","Regulatory compliance"],
+  "skills_soft": ["Oral advocacy","Negotiation","Professional discretion","Client management"],
+  "experience_years_min": 3,
+  "experience_years_max": 8,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree (Law)",
+  "education_field": "Law",
+  "certifications": ["Bar admission / local legal license"],
+  "languages": [{"language":"English","proficiency":"Professional"}],
+  "location": {"city":"Sydney","country":"Australia","on_site": true},
+  "application_deadline": "2026-04-01"
+}

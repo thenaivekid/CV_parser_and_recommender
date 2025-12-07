@@ -1,0 +1,17 @@
+{
+  "job_title": "Junior Accountant",
+  "company": "BlueSky Logistics Ltd.",
+  "description": "Support the finance team with day-to-day accounting operations including transaction processing, data entry, and account reconciliation. Gain hands-on experience in a fast-paced logistics environment.",
+  "responsibilities": "Process invoices and payments; maintain accounts payable and receivable ledgers; perform bank reconciliations; assist with monthly close activities; file and organize financial documents; prepare basic reports; support audit requests with documentation.",
+  "skills_technical": ["Bookkeeping","Data entry","Account reconciliation","Basic Excel","Accounting software (Tally/QuickBooks)","Invoice processing"],
+  "skills_soft": ["Accuracy","Organized","Team player","Eagerness to learn","Basic communication"],
+  "experience_years_min": 0,
+  "experience_years_max": 2,
+  "seniority_level": "Entry",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Accounting / Commerce / Finance",
+  "certifications": [],
+  "languages": [{"language":"English","proficiency":"Fluent"},{"language":"Hindi","proficiency":"Fluent"}],
+  "location": {"city":"Delhi","country":"India","on_site": true},
+  "application_deadline": "2026-02-15"
+}

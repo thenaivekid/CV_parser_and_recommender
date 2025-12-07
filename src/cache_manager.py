@@ -53,7 +53,7 @@ class EmbeddingCache:
                 host=host,
                 port=port,
                 db=db,
-                decode_responses=False,  # Binary mode for pickle
+                decode_responses=False,
                 socket_timeout=5,
                 socket_connect_timeout=5
             )
@@ -63,11 +63,11 @@ class EmbeddingCache:
             logger.info(f"✅ Redis connected: {host}:{port}")
             
         except redis.ConnectionError as e:
-            logger.error(f"❌ Redis connection failed: {e}")
+            logger.error(f"Redis connection failed: {e}")
             logger.warning("Falling back to database-only mode")
             self.enabled = False
         except Exception as e:
-            logger.error(f"❌ Redis initialization error: {e}")
+            logger.error(f"Redis initialization error: {e}")
             self.enabled = False
     
     def get_job_embeddings(self, db_manager) -> Optional[Dict[str, Any]]:
@@ -90,11 +90,11 @@ class EmbeddingCache:
             cached_data = self.redis.get(cache_key)
             
             if cached_data:
-                logger.debug("✅ Cache HIT: job embeddings loaded from Redis")
+                logger.debug("Cache HIT: job embeddings loaded from Redis")
                 return pickle.loads(cached_data)
             
             # Cache miss - load from database
-            logger.info("⚠️  Cache MISS: loading job embeddings from database...")
+            logger.info("Cache MISS: loading job embeddings from database...")
             job_data = self._load_from_database(db_manager)
             
             if job_data:
@@ -104,12 +104,12 @@ class EmbeddingCache:
                     self.ttl,
                     pickle.dumps(job_data)
                 )
-                logger.info(f"✅ Cached {len(job_data['ids'])} job embeddings (TTL: {self.ttl}s)")
+                logger.info(f"Cached {len(job_data['ids'])} job embeddings (TTL: {self.ttl}s)")
             
             return job_data
             
         except Exception as e:
-            logger.error(f"❌ Cache error: {e}")
+            logger.error(f"Cache error: {e}")
             return None
     
     def _load_from_database(self, db_manager) -> Optional[Dict[str, Any]]:
@@ -221,7 +221,7 @@ class EmbeddingCache:
         try:
             deleted = self.redis.delete("job_embeddings_v1")
             if deleted:
-                logger.info("✅ Cache invalidated: job embeddings")
+                logger.info("Cache invalidated: job embeddings")
             else:
                 logger.debug("Cache key not found (already empty)")
         except Exception as e:
@@ -349,8 +349,6 @@ class CachedRecommendationEngine:
                 logger.debug(f"✅ Used Redis cache for similarity search (mode: fast)")
                 return jobs_with_similarity
         
-        # Fallback to pgvector - but this expects candidate_id, not embedding!
-        # We need to handle this differently
         logger.warning("Redis cache unavailable, cannot compute similarity without candidate_id")
         return []
     

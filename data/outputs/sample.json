@@ -1,0 +1,74 @@
+{
+  "basics": {
+    "name": "John Doe",
+    "email": "john.doe@techcorp.com",
+    "phone": "+1-555-123-4567",
+    "location": {
+      "city": "San Francisco",
+      "countryCode": "US"
+    }
+  },
+  "summary": "Experienced AI Engineer with 3+ years of expertise in developing scalable machine learning solutions and real-time analytics systems. Proven track record of delivering high-impact projects that improve operational efficiency.",
+  "work": [
+    {
+      "company": "Tech Corp",
+      "position": "Senior AI Engineer",
+      "startDate": "2020-01",
+      "endDate": "2023-12",
+      "summary": "Led development of a real-time predictive analytics engine used by over 50 clients, increasing internal efficiency by 30%. Focused on deep learning models and scalable cloud infrastructure."
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of Tech",
+      "area": "Computer Science (Artificial Intelligence)",
+      "studyType": "Master of Science",
+      "startDate": "2018-09-01",
+      "endDate": "2020-06-01"
+    }
+  ],
+  "skills": {
+    "technical": [
+      "Python",
+      "TypeScript",
+      "Go",
+      "PyTorch",
+      "TensorFlow",
+      "Keras",
+      "Scikit-learn",
+      "Docker",
+      "Kubernetes"
+    ],
+    "soft": [
+      "Team Leadership",
+      "Problem Solving",
+      "Communication",
+      "Project Management"
+    ]
+  },
+  "certifications": [
+    {
+      "name": "Certified Cloud Professional (GCP)",
+      "issuer": "Google Cloud",
+      "date": "2022-03-01"
+    }
+  ],
+  "achievements": [
+    {
+      "title": "Innovation of the Year",
+      "awarder": "Tech Corp Internal Summit",
+      "date": "2021-06-15",
+      "description": "Recognized for the creation of the proprietary AI-driven fraud detection system."
+    }
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "fluency": "Native"
+    },
+    {
+      "language": "Spanish",
+      "fluency": "Professional Working Proficiency"
+    }
+  ]
+}

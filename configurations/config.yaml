@@ -1,5 +1,3 @@
-# Resume Parser and Recommender System Configuration
-
 # LLM Provider for parsing resumes
 llm_parser: gemini  # Options: gemini, azure
 
@@ -23,8 +21,8 @@ professions:
   # - TEACHER
 
 # Paths
-resume_base_path: /workspaces/CV_parser_and_recommender/resume-dataset/data/data
-jobs_base_path: /workspaces/CV_parser_and_recommender/data/sample_jobs
+resume_base_path: resume-dataset/data/data
+jobs_base_path: data/sample_jobs
 
 # CV Processing settings
 batch_processing:

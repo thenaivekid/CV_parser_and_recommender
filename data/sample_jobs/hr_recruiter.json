@@ -1,0 +1,17 @@
+{
+  "job_title": "HR Recruiter",
+  "company": "GlobalHire Staffing",
+  "description": "Manage end-to-end recruitment for diverse roles across industries. Source, screen, and select top talent while delivering a positive candidate experience and meeting hiring targets.",
+  "responsibilities": "Source candidates through job portals, LinkedIn, and referrals; screen resumes and conduct initial phone interviews; coordinate technical and HR interview rounds; manage candidate pipelines and ATS; negotiate offers and onboard new hires; build relationships with hiring managers; maintain recruitment metrics and reports; participate in job fairs and campus recruitment.",
+  "skills_technical": ["Applicant Tracking Systems (ATS)","Boolean search","LinkedIn Recruiter","Interviewing techniques","Candidate assessment","Recruitment metrics","Job posting optimization"],
+  "skills_soft": ["Communication","Relationship building","Negotiation","Time management","Persuasion"],
+  "experience_years_min": 2,
+  "experience_years_max": 4,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Human Resources / Business Administration / Psychology",
+  "certifications": ["HR certification (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"},{"language":"Hindi","proficiency":"Fluent"}],
+  "location": {"city":"Hyderabad","country":"India","on_site": true},
+  "application_deadline": "2026-03-10"
+}

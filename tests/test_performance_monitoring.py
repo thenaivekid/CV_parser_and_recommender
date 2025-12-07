@@ -104,7 +104,7 @@ def main():
     db_manager.close()
     
     print("\n" + "="*80)
-    print("✅ PERFORMANCE MONITORING TEST COMPLETE")
+    print("PERFORMANCE MONITORING TEST COMPLETE")
     print("="*80)
     
     if test_count > 0:
@@ -115,7 +115,7 @@ def main():
         print("3. Generate dashboard: python src/generate_performance_dashboard.py")
         return 0
     else:
-        print("\n⚠️  Performance monitoring is set up but no metrics collected yet.")
+        print("\nPerformance monitoring is set up but no metrics collected yet.")
         print("   This is normal if you haven't run any processing operations.")
         return 0
 

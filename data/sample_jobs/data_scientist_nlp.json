@@ -1,0 +1,17 @@
+{
+  "job_title": "NLP Data Scientist",
+  "company": "LexiAI Labs",
+  "description": "Develop and deploy production-grade natural language models to extract insights from large document collections and power conversational features. Collaborate with product, engineering and research teams to close the loop from prototype to production.",
+  "responsibilities": "Design experiments and model architectures; preprocess and curate text datasets; train and fine-tune transformer models; build evaluation pipelines and production inference services; monitor model performance and drift; collaborate on annotation and labeling workflows.",
+  "skills_technical": ["Python","PyTorch or TensorFlow","Transformers (Hugging Face)","Tokenization & preprocessing","NLP evaluation metrics (BLEU, F1, ROUGE)","SQL","Model serving (TorchServe, FastAPI)","Docker","Data versioning (DVC)","MLOps basics"],
+  "skills_soft": ["Curiosity","Experiment design","Collaborative research","Communication of technical trade-offs","Attention to detail"],
+  "experience_years_min": 3,
+  "experience_years_max": 6,
+  "seniority_level": "Mid",
+  "education_required": "Master's Degree (preferred)",
+  "education_field": "Computer Science / Computational Linguistics / Statistics",
+  "certifications": ["Applied ML / NLP specialization (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"},{"language":"Spanish","proficiency":"Conversational"}],
+  "location": {"city":"London","country":"United Kingdom","on_site": true},
+  "application_deadline": "2026-03-31"
+}

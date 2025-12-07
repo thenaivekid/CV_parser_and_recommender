@@ -1,0 +1,17 @@
+{
+  "job_title": "Finance Manager",
+  "company": "GreenTech Industries",
+  "description": "Lead the finance function for a mid-sized manufacturing firm. Oversee financial planning, reporting, treasury, and team management while ensuring regulatory compliance and supporting strategic initiatives.",
+  "responsibilities": "Manage financial planning, budgeting and forecasting; oversee month-end and year-end close; prepare consolidated financial statements; manage cash flow and working capital; lead a team of 3-5 finance professionals; coordinate audits and tax filings; implement financial controls and process improvements; provide financial insights to executive leadership.",
+  "skills_technical": ["Financial planning & analysis","Budgeting & forecasting","Treasury management","ERP systems (SAP, Oracle)","Financial reporting","Internal controls","GAAP/IFRS","Advanced Excel and Power BI"],
+  "skills_soft": ["Leadership","Strategic thinking","Stakeholder management","Decision-making","Team development"],
+  "experience_years_min": 6,
+  "experience_years_max": 10,
+  "seniority_level": "Senior",
+  "education_required": "Bachelor's or Master's Degree",
+  "education_field": "Finance / Accounting / Business Administration",
+  "certifications": ["CPA, CA, ACCA or CMA (required)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Dublin","country":"Ireland","on_site": true},
+  "application_deadline": "2026-05-01"
+}

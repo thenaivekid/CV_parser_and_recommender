@@ -1,0 +1,17 @@
+{
+  "job_title": "Chef - Kitchen",
+  "company": "The Hearthstone Restaurant",
+  "description": "Lead sections of a busy neighbourhood restaurant kitchen, deliver high-quality dishes consistently, and maintain kitchen standards and safety.",
+  "responsibilities": "Prepare and cook menu items to standard; manage mise en place and station operations; maintain food safety and hygiene standards; collaborate with Head Chef on menu execution; help train junior kitchen staff and support inventory control.",
+  "skills_technical": ["Butchery and knife skills","Menu execution","Kitchen inventory management","Food safety & HACCP","Stock rotation and portion control"],
+  "skills_soft": ["Calm under pressure","Team leadership","Time management","Adaptability","Strong work ethic"],
+  "experience_years_min": 2,
+  "experience_years_max": 5,
+  "seniority_level": "Mid",
+  "education_required": "Culinary Diploma or equivalent",
+  "education_field": "Culinary Arts",
+  "certifications": ["Food Safety / HACCP certificate"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Bangalore","country":"India","on_site": true},
+  "application_deadline": "2026-02-15"
+}

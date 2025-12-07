@@ -1,0 +1,17 @@
+{
+  "job_title": "English Teacher",
+  "company": "Greenfield High School",
+  "description": "Teach English language and literature to secondary students, prepare engaging lesson plans, assess progress, and contribute to a nurturing school community.",
+  "responsibilities": "Plan and deliver age-appropriate lessons; assess and report on student progress; prepare students for internal and external examinations; support classroom management and pastoral care; liaise with parents and participate in school events and extracurricular activities.",
+  "skills_technical": ["Curriculum planning","Assessment design","Classroom technology (SMART/interactive)","Exam preparation (GCSE/A-Levels or equivalent)"],
+  "skills_soft": ["Patience","Clear communication","Classroom management","Empathy","Collaborative approach"],
+  "experience_years_min": 2,
+  "experience_years_max": 5,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree",
+  "education_field": "English / Education / Linguistics",
+  "certifications": ["TEFL/TESOL (preferred)", "State teaching license (where required)"],
+  "languages": [{"language":"English","proficiency":"Native"}, {"language":"Hindi","proficiency":"Conversational"}],
+  "location": {"city":"Sydney","country":"Australia","on_site": true},
+  "application_deadline": "2026-02-28"
+}

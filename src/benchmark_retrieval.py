@@ -205,7 +205,7 @@ def run_benchmark(
     logger.info("BENCHMARK RESULTS")
     logger.info("=" * 80)
     
-    logger.info("\n📊 SINGLE-STAGE RETRIEVAL:")
+    logger.info("\nSINGLE-STAGE RETRIEVAL:")
     logger.info(f"  Total time: {single_stage_total:.2f}s")
     logger.info(f"  Avg per candidate: {single_stats.get('avg_total_ms', 0):.2f}ms")
     logger.info(f"  Median: {single_stats.get('median_total_ms', 0):.2f}ms")
@@ -217,7 +217,7 @@ def run_benchmark(
     logger.info(f"  Throughput: {single_throughput:.2f} candidates/min")
     logger.info(f"  Success rate: {single_stats.get('successful_count', 0)}/{len(sample_candidates)}")
     
-    logger.info("\n🚀 TWO-STAGE RETRIEVAL:")
+    logger.info("\nTWO-STAGE RETRIEVAL:")
     logger.info(f"  Total time: {two_stage_total:.2f}s")
     logger.info(f"  Avg per candidate: {two_stage_stats.get('avg_total_ms', 0):.2f}ms")
     logger.info(f"  Median: {two_stage_stats.get('median_total_ms', 0):.2f}ms")
@@ -229,13 +229,13 @@ def run_benchmark(
     logger.info(f"  Throughput: {two_stage_throughput:.2f} candidates/min")
     logger.info(f"  Success rate: {two_stage_stats.get('successful_count', 0)}/{len(sample_candidates)}")
     
-    logger.info("\n✨ PERFORMANCE IMPROVEMENT:")
+    logger.info("\nPERFORMANCE IMPROVEMENT:")
     logger.info(f"  Speedup: {speedup:.2f}x faster")
     logger.info(f"  Time saved: {time_saved_pct:.1f}%")
     logger.info(f"  Jobs reduction: {jobs_reduction_pct:.1f}%")
     logger.info(f"  Throughput gain: {two_stage_throughput - single_throughput:.2f} candidates/min")
     
-    logger.info("\n📈 SCALABILITY PROJECTION (for 1000 CVs × 500 jobs):")
+    logger.info("\nSCALABILITY PROJECTION (for 1000 CVs × 500 jobs):")
     single_projected = (single_stats.get('avg_total_ms', 0) / 1000) * 1000  # seconds
     two_stage_projected = (two_stage_stats.get('avg_total_ms', 0) / 1000) * 1000
     logger.info(f"  Single-stage: ~{single_projected:.1f}s ({single_projected/60:.1f} min)")

@@ -1,0 +1,17 @@
+{
+  "job_title": "UX/UI Designer",
+  "company": "Pixel Studio",
+  "description": "Design intuitive and visually appealing user experiences for web and mobile applications. Collaborate with product managers, developers, and stakeholders to deliver user-centric design solutions.",
+  "responsibilities": "Conduct user research and usability testing; create wireframes, prototypes, and high-fidelity mockups; design responsive interfaces for web and mobile; maintain design systems and style guides; collaborate with developers on implementation; iterate designs based on feedback and analytics; ensure accessibility and usability standards.",
+  "skills_technical": ["Figma","Adobe XD","Sketch","Prototyping","User research","Interaction design","Responsive design","Design systems","Basic HTML/CSS knowledge"],
+  "skills_soft": ["Creativity","Empathy for users","Collaboration","Problem solving","Attention to aesthetics"],
+  "experience_years_min": 2,
+  "experience_years_max": 5,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Design / HCI / Visual Communication",
+  "certifications": ["UX certification (e.g., Nielsen Norman Group) (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"San Francisco","country":"USA","on_site": false},
+  "application_deadline": "2026-04-30"
+}

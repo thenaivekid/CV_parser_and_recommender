@@ -1,0 +1,17 @@
+{
+  "job_title": "Art Collection Helper",
+  "company": "Blue Orchid Gallery",
+  "description": "Support the gallery collections team in handling, cataloging, and maintaining artworks across exhibitions and storage.",
+  "responsibilities": "Assist with receiving, inspecting, packing, transporting and installing artworks; maintain and update inventory records; support condition reporting and basic conservation handling under supervision; liaise with artists, framers and couriers; ensure proper environmental and storage procedures are followed.",
+  "skills_technical": ["Art handling and packing","Condition reporting","Inventory management","Basic conservation practices","Familiarity with archival materials"],
+  "skills_soft": ["Attention to detail","Clear communication","Teamwork","Time management","Problem solving"],
+  "experience_years_min": 0,
+  "experience_years_max": 2,
+  "seniority_level": "Entry",
+  "education_required": "High School Diploma",
+  "education_field": "Arts/Conservation preferred",
+  "certifications": ["Handling & Packing Certification (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}, {"language":"Spanish","proficiency":"Conversational"}],
+  "location": {"city":"London","country":"UK","on_site": true},
+  "application_deadline": "2026-01-31"
+}

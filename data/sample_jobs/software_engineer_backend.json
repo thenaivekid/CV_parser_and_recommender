@@ -1,0 +1,17 @@
+{
+  "job_title": "Senior Backend Software Engineer",
+  "company": "CloudBridge Technologies",
+  "description": "Design, implement and maintain scalable backend services that power CloudBridge's B2B SaaS products. Work with product and platform teams to deliver reliable APIs and data services, and mentor junior engineers.",
+  "responsibilities": "Architect and build REST/GraphQL services; write efficient database schemas and queries; develop reusable libraries and integrations; own CI/CD pipelines and observability for services; conduct code reviews and mentor engineers; participate in on-call rotation and incident response.",
+  "skills_technical": ["Python","Django/Flask","RESTful APIs","PostgreSQL","Redis","Docker","Kubernetes","CI/CD (GitHub Actions, Jenkins)","Unit & integration testing","Cloud (AWS/GCP)"],
+  "skills_soft": ["Systemic thinking","Mentoring","Clear communication","Ownership","Prioritization"],
+  "experience_years_min": 5,
+  "experience_years_max": 10,
+  "seniority_level": "Senior",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Computer Science / Software Engineering",
+  "certifications": ["AWS Certified Developer – Associate (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Bengaluru","country":"India","on_site": false},
+  "application_deadline": "2026-04-15"
+}

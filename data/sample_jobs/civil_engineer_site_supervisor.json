@@ -1,0 +1,17 @@
+{
+  "job_title": "Civil Engineer - Site Supervisor",
+  "company": "Apex Construction Pvt. Ltd.",
+  "description": "Lead on-site engineering activities for medium-to-large scale civil construction projects. Ensure works are delivered to specification, on schedule and in compliance with safety and quality standards.",
+  "responsibilities": "Supervise day-to-day site operations; interpret drawings and specifications; coordinate subcontractors and suppliers; perform quality control and materials inspections; maintain site safety and environmental compliance; prepare progress reports and liaise with project managers.",
+  "skills_technical": ["AutoCAD / Revit","Site management","Concrete and steel construction","Quantity surveying basics","Health & Safety regulations","Reading engineering drawings","Surveying fundamentals"],
+  "skills_soft": ["Leadership","Decision-making","Stakeholder coordination","Problem solving","Practical planning"],
+  "experience_years_min": 4,
+  "experience_years_max": 8,
+  "seniority_level": "Senior",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Civil Engineering",
+  "certifications": ["Site Safety Supervisor (mandatory)", "PMP (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"},{"language":"Hindi","proficiency":"Fluent"}],
+  "location": {"city":"Mumbai","country":"India","on_site": true},
+  "application_deadline": "2026-05-15"
+}

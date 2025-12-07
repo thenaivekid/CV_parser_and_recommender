@@ -1,0 +1,17 @@
+{
+  "job_title": "Accountant",
+  "company": "Stonebridge Accountants",
+  "description": "Prepare and examine financial records, ensure accuracy and compliance with regulations, and produce financial reports for clients across industries.",
+  "responsibilities": "Manage bookkeeping and ledger entries; prepare financial statements; perform month-end and year-end closings; support tax filing and compliance; liaise with auditors; advise clients on accounting best practices.",
+  "skills_technical": ["Financial reporting","Tax compliance","Excel (advanced)","Accounting software (QuickBooks/Xero)","Reconciliation"],
+  "skills_soft": ["Attention to detail","Analytical thinking","Client communication","Time management"],
+  "experience_years_min": 2,
+  "experience_years_max": 6,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Accounting / Finance",
+  "certifications": ["ACCA / CPA (preferred)"],
+  "languages": [{"language":"English","proficiency":"Professional"}],
+  "location": {"city":"Melbourne","country":"Australia","on_site": true},
+  "application_deadline": "2026-03-15"
+}

@@ -242,7 +242,7 @@ class BatchProcessor:
             logger.info(f"  {prof}: {count}")
         
         logger.info("\n" + "="*60)
-        logger.info("✅ Batch processing complete!")
+        logger.info("Batch processing complete!")
         logger.info("="*60)
 
 

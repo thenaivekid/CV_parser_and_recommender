@@ -1,0 +1,17 @@
+{
+  "job_title": "Financial Analyst",
+  "company": "Vertex Capital Management",
+  "description": "Analyze financial data, build financial models, and provide insights to support investment decisions and business strategy. Prepare reports and presentations for senior management and clients.",
+  "responsibilities": "Build and maintain financial models (DCF, LBO, M&A); perform valuation and scenario analysis; prepare monthly management reports and variance analysis; analyze market trends and competitor performance; support budgeting and forecasting processes; conduct due diligence for investment opportunities; create presentations for stakeholders.",
+  "skills_technical": ["Financial modeling","Excel (advanced)","Valuation (DCF, comparables)","Financial statement analysis","Data visualization (Tableau, Power BI)","Bloomberg Terminal","SQL (preferred)"],
+  "skills_soft": ["Analytical thinking","Detail-oriented","Communication","Business acumen","Collaborative approach"],
+  "experience_years_min": 2,
+  "experience_years_max": 5,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Finance / Economics / Accounting",
+  "certifications": ["CFA Level I or II (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"New York","country":"USA","on_site": true},
+  "application_deadline": "2026-03-25"
+}

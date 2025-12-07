@@ -1,0 +1,17 @@
+{
+  "job_title": "Financial Analyst",
+  "company": "Aurora Capital",
+  "description": "Analyze financial data, prepare forecasts, support budgeting processes, and provide insights to support business decisions and investment evaluation.",
+  "responsibilities": "Develop financial models; prepare monthly forecasting and variance analysis; support business unit planning; evaluate investment proposals; prepare executive reports.",
+  "skills_technical": ["Financial modelling","Excel (advanced)","Power BI / Tableau","Valuation techniques","Budgeting and forecasting"],
+  "skills_soft": ["Critical thinking","Communication","Business acumen","Stakeholder engagement"],
+  "experience_years_min": 2,
+  "experience_years_max": 5,
+  "seniority_level": "Mid",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Finance / Economics / Accounting",
+  "certifications": ["CFA Level I (advantage)"],
+  "languages": [{"language":"English","proficiency":"Professional"}],
+  "location": {"city":"Perth","country":"Australia","on_site": true},
+  "application_deadline": "2026-03-31"
+}

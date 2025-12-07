@@ -1,0 +1,17 @@
+{
+  "job_title": "Human Resources Manager",
+  "company": "Cedar Management Solutions",
+  "description": "Lead HR operations including recruitment, employee relations, performance management, and HR policy implementation across the organisation.",
+  "responsibilities": "Manage full-cycle recruitment; develop and implement HR policies; handle employee relations and performance reviews; drive learning and development programs; ensure compliance with employment laws.",
+  "skills_technical": ["Recruitment and selection","Employment law","HRIS (Workday/Greythr)","Performance management"],
+  "skills_soft": ["Empathy","Conflict resolution","Leadership","Communication"],
+  "experience_years_min": 4,
+  "experience_years_max": 8,
+  "seniority_level": "Senior",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Human Resources / Business Administration",
+  "certifications": ["SHRM / CIPD (preferred)"],
+  "languages": [{"language":"English","proficiency":"Professional"}],
+  "location": {"city":"Adelaide","country":"Australia","on_site": true},
+  "application_deadline": "2026-04-15"
+}

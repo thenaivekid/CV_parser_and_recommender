@@ -1,0 +1,17 @@
+{
+  "job_title": "Senior Accountant",
+  "company": "Meridian Financial Services",
+  "description": "Manage month-end and year-end accounting close processes, prepare financial statements, and ensure compliance with accounting standards. Support senior management with financial analysis and reporting.",
+  "responsibilities": "Prepare and review monthly financial statements; manage accounts payable and receivable; perform reconciliations of general ledger accounts; assist with budget preparation and variance analysis; coordinate with external auditors during audits; ensure compliance with GAAP/IFRS; manage fixed assets register; prepare tax schedules and support filings.",
+  "skills_technical": ["Financial statement preparation","General ledger accounting","Month-end close","Account reconciliation","GAAP/IFRS","ERP systems (SAP, Oracle)","Excel (advanced)","QuickBooks or Xero","Tax preparation basics"],
+  "skills_soft": ["Attention to detail","Analytical thinking","Time management","Integrity","Process improvement"],
+  "experience_years_min": 4,
+  "experience_years_max": 7,
+  "seniority_level": "Senior",
+  "education_required": "Bachelor's Degree",
+  "education_field": "Accounting / Finance",
+  "certifications": ["CPA (preferred)", "CA/ACCA (preferred)"],
+  "languages": [{"language":"English","proficiency":"Fluent"}],
+  "location": {"city":"Singapore","country":"Singapore","on_site": true},
+  "application_deadline": "2026-03-20"
+}
