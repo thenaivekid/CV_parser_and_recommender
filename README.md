@@ -32,7 +32,7 @@ pip install -r requirements.txt
 
 # start postgresql docker container
 ./scripts/init_database.sh #for creating tables for first time
-./scripts/restart_db.sh #after running init_database.sh once, keeps the data from earlier sessions
+# ./scripts/restart_db.sh #after running init_database.sh once, keeps the data from earlier sessions
 
 # install redis
 ./scripts/install_redis.sh
