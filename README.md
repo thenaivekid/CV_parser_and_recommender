@@ -11,8 +11,17 @@ cd CV_parser_and_recommender
 curl -L -o resume-dataset.zip https://www.kaggle.com/api/v1/datasets/download/snehaanbhawal/resume-dataset
 unzip resume-dataset.zip -d resume-dataset
 
+# for llm api
+cp .env.example .env
+# get gemini api key and put it in .env file
+
 # make all scripts executable
 chmod +x ./scripts/*.sh
+
+# create python env
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
 # start postgresql docker container
 ./scripts/init_database.sh #for creating tables for first time
