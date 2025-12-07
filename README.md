@@ -1,7 +1,14 @@
 # CV parser and recommender
 
 ## Usage
-Needs Linux machine with git, python, docker and docker-compose installed.
+**Needs Linux machine with git, python, docker and docker-compose installed.**
+- If docker-compose not present else skip :
+```bash
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+```
+
 ```bash
 git clone https://github.com/thenaivekid/CV_parser_and_recommender.git
 
