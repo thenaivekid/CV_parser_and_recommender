@@ -1,7 +1,7 @@
 # CV parser and recommender
 This repository implements a CV/Resume parsing and job recommendation system focused on: NLP / LLM-driven parsing, vector embeddings & semantic search (pgvector + Redis cache), explainable matching, and performance-aware retrieval and long with qualitative and performance evaluation metrics.
 
-**The technical report is in [DOCUMENTATION.md](https://github.com/thenaivekid/CV_parser_and_recommender/blob/main/DOCUMENTATION.md)
+**The technical report is in [DOCUMENTATION.md](https://github.com/thenaivekid/CV_parser_and_recommender/blob/main/DOCUMENTATION.md)**
 ## Usage
 **Needs Linux machine with git, python, docker and docker-compose installed. Also, python venv should be supported.**
 - If docker-compose not present else skip :
