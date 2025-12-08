@@ -1,6 +1,6 @@
-# CV-Job Matching System — Repository Documentation
+# CV Parsing and Job Matching System
 
-This repository implements a CV/Resume parsing and job recommendation system focused on: NLP / LLM-driven parsing, vector embeddings & semantic search (pgvector + optional Redis cache), explainable matching, and performance-aware retrieval. The project aims to meet the specification for the JoBins assignment (CV-Job Matching System).
+This repository implements a CV/Resume parsing and job recommendation system focused on: NLP / LLM-driven parsing, vector embeddings & semantic search (pgvector + Redis cache), explainable matching, and performance-aware retrieval and long with qualitative and performance evaluation metrics. Also, it contains an extra layer of security to prevent people trying to fool AI models.
 
 ---
 
@@ -26,59 +26,25 @@ This repository implements a CV/Resume parsing and job recommendation system foc
 
 **Installation & Quick Start**
 
-- Prereqs: Python 3.10+, PostgreSQL with `pgvector` extension, Docker (recommended for DB), optional Redis for caching.
-- Create virtualenv and install deps:
-
-```
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-- Start PostgreSQL (repo contains `docker-compose.yml` to run a container with `pgvector` setup):
-
-```
-docker-compose up -d
-```
-
-- Initialize DB (helper):
-
-```
-# Wait for DB, then run init script (which runs docker-compose too)
-./scripts/init_database.sh
-```
-
-- Example: parse a resume and save JSON
-
-```
-python src/cv_parser.py /path/to/resume.pdf -o data/outputs/parsed_resume.json --provider gemini
-```
-
-- Example: process a batch of resumes (parsing, embeddings, DB inserts)
-
-```
-./scripts/run_cv_batch_processing.sh
-# or
-python src/process_cvs.py --workers 4
-```
-
-- Generate recommendations (two-stage retrieval default)
-
-```
-./scripts/run_recommendations.sh --top-k 10
-# or
-python src/generate_recommendations.py --workers 8 --stage1-k 50 --stage1-threshold 0.3
-```
-
-- Evaluate recommendations against ground truth:
-
-```
-./scripts/run_evaluation.sh --ground-truth data/evaluation/ground_truth.json --batch-size 100 --workers 4
-```
+Please refer to [README.md](https://github.com/thenaivekid/CV_parser_and_recommender)
 
 ---
 
 **Repository Layout (important files)**
+```md
+.
+├── DOCUMENTATION.md
+├── README.md
+├── configurations
+├── data #sample data
+├── docker-compose.yml #to init postgresql in a docker container
+├── postgres # init file to create tables and indices
+├── requirements.txt
+├── resume-dataset
+├── scripts # bash scripts to run the modules
+├── src # main implementation python codes
+└── tests # unit tests
+```
 
 - `src/` : main source
   - `cv_parser.py` : LLM-based PDF resume parsing (LangChain templates + robust validation)
@@ -109,7 +75,6 @@ python src/generate_recommendations.py --workers 8 --stage1-k 50 --stage1-thresh
   - Uses `langchain_core` prompt templates and either Azure (`AzureChatOpenAI`) or Google Gemini (`ChatGoogleGenerativeAI`) as the LLM provider.
   - Extracted fields (via `ResumeData` Pydantic model): `basics`, `summary`, `work`, `education`, `skills` (technical + soft), `certifications`, `achievements`, `languages`.
   - Robust PDF reading with `pypdf`, cleaning, retry logic (3 attempts), and validation of parsed JSON. Output conforms to a JSON structure matching the expected schema.
-  - Usage: `CVParser.parse_cv(pdf_path, save_output=True, output_path=...)` or via CLI `src/cv_parser.py`.
 
 - Task 2 — Job Recommendation System
   - Core ranking logic is in `src/recommendation_engine.py`.
@@ -181,28 +146,6 @@ python src/generate_recommendations.py --workers 8 --stage1-k 50 --stage1-thresh
 
 ---
 
-**Scripts & Useful Commands**
-
-- Start DB
-  - `docker-compose up -d`
-
-- Initialize DB environment and wait for readiness
-  - `./scripts/init_database.sh`
-
-- Process resumes (batch)
-  - `./scripts/run_cv_batch_processing.sh` (expects `.env` and `.venv`)
-
-- Generate recommendations
-  - `./scripts/run_recommendations.sh --top-k 10 --output-dir data/recommendations`
-
-- Run evaluation pipeline
-  - `./scripts/run_evaluation.sh --ground-truth data/evaluation/ground_truth.json --batch-size 100 --workers 4`
-
-- Run benchmark retrieval (single script)
-  - `./scripts/run_recommendation_benchmark.sh`
-
----
-
 **Testing**
 
 - Unit tests live in `tests/` with these notable tests:
@@ -214,7 +157,7 @@ python src/generate_recommendations.py --workers 8 --stage1-k 50 --stage1-thresh
 - Run tests:
 
 ```
-pytest -q
+./scripts/test_all.sh
 ```
 
 Note: Some tests require DB and Redis available or can be run against mocked/stubbed configs.
@@ -230,23 +173,17 @@ Note: Some tests require DB and Redis available or can be run against mocked/stu
 - Caching: `src/cache_manager.py` — Redis-backed cache retrieval and vectorized similarity.
 - Orchestration: `src/generate_recommendations.py` and `src/process_cvs.py` — entrypoints for recommendation generation and CV batch processing.
 
+**Perf Dashboard**
+
+![perf_dashboard1](perf_dashboard1.png)
+![perf_dashboard2.png](perf_dashboard2.png)
+
 ---
 
 **Known Limitations & Future Improvements**
 
-- LLM provider abstraction is basic — rate limits, batching prompts to reduce cost, or local open-source model integration (e.g., Llama 2 via Hugging Face or Ollama) could be added.
+- LLM provider abstraction is basic — rate limits, batching prompts to reduce cost, or more options for LLM APIs and local open-source model integration (e.g., Llama 2 via Hugging Face or Ollama) could be added.
 - Fine-grained skill normalization could use an ontology (e.g., skill embeddings or mapping tables) instead of hard-coded synonyms.
 - Education normalization and experience parsing can occasionally mis-handle ambiguous date formats — adding dedicated date parsers / heuristics can improve accuracy.
-- More robust database connection pooling (e.g., psycopg2.pool.ThreadedConnectionPool) is suggested for heavy parallel workloads (commented in `run.md`).
+- Since nothing is mentioned about job descriptions, I assumed them to be a structured json and also added feature to parse jd pdf and store them to db.
 - The evaluation ground truth in `generate_ground_truth.py` is synthetic; real evaluation requires curated labels.
-
----
-
-If you want, I can:
-- run the unit tests in this environment (requires DB/Redis if not mocked)
-- generate a brief architecture diagram or a short technical report
-- add an OpenAPI/REST wrapper with FastAPI for upload + recommendation endpoints
-
----
-
-Authoring notes: This documentation was generated by analyzing repository source files and synthesizing how each file fulfills the assignment requirements. For quick navigation, search within `src/` for the functions or classes named above.
