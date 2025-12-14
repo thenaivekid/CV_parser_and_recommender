@@ -326,6 +326,14 @@ Examples:
             items_skipped=processor.stats['skipped']
         )
         
+        # Invalidate Redis cache after job embeddings are updated
+        if config.redis.get('enabled', False):
+            logger.info("\n🔄 Invalidating Redis cache...")
+            from src.cache_manager import CachedRecommendationEngine
+            engine = CachedRecommendationEngine(db_manager, config.redis)
+            engine.invalidate_cache()
+            logger.info("✓ Cache invalidated")
+        
         # Cleanup
         db_manager.close()
         
